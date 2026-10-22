@@ -1,5 +1,9 @@
 # Bangladesh Garment Exports: Forecasts and Scenarios for the US and EU
 
+<p align="center"><a href="https://takyurp09.github.io/rmg-export-forecasting/"><strong>▶ Open the interactive dashboard</strong></a></p>
+
+[![Dashboard overview](assets/dashboard_overview.png)](https://takyurp09.github.io/rmg-export-forecasting/)
+
 Ready-made garments (RMG, HS chapters 61 and 62) are most of what Bangladesh exports, and the US and the EU buy most of them. This repo asks three questions a ministry analyst or a factory owner would ask. How have US and EU imports of Bangladeshi apparel moved since 2010? What will they be over the next 12 months, and how much better is that forecast than a naive guess? How much revenue is at risk if US demand falls, or if Bangladesh loses duty-free access to the EU after it leaves the UN list of Least Developed Countries (LDCs)?
 
 All values are importer-reported (CIF) in nominal US dollars unless a table says otherwise.
@@ -19,7 +23,11 @@ All values are importer-reported (CIF) in nominal US dollars unless a table says
 | ![EU 12-month forecast with intervals](outputs/figures/fan_eu_total.png) | ![Revenue at risk by market and scenario](outputs/figures/fig_scen02_risk_by_market.png) |
 | ![US product mix over time](outputs/figures/fig05_us_product_mix.png) | ![Backtest MASE by model](outputs/figures/backtest_mase_by_model.png) |
 
-A Power BI version (overview, trends, forecast vs. actual, scenarios) is described in [dashboard/POWERBI_BUILD_GUIDE.md](dashboard/POWERBI_BUILD_GUIDE.md).
+## Dashboard
+
+The [interactive dashboard](https://takyurp09.github.io/rmg-export-forecasting/) has four pages: overview, products and markets, forecast with backtest results, and scenarios with sliders for the US demand shock, the EU duty rate and the elasticity. It is a static site in `site/` built with ECharts from the same tables (`scripts/build_site_data.py`) and deployed by GitHub Pages.
+
+The Power BI design is in the repo as text: Power Query scripts (`powerquery/`), a DAX measure library (`dax/measures.dax`), a report theme (`theme/report_theme.json`), the schema, data dictionary and page spec (`docs/`), and a build guide ([dashboard/POWERBI_BUILD_GUIDE.md](dashboard/POWERBI_BUILD_GUIDE.md)). `scripts/validate_model.py` checks the star schema.
 
 ## Data
 

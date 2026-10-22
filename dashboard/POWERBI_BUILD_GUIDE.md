@@ -2,6 +2,23 @@
 
 This builds the 4-page report in PLAN.md 1.3E from the CSVs in `data/processed/powerbi/`. Save the file as `dashboard/rmg_dashboard.pbix`. Allow about two hours.
 
+## 0. Design files
+
+These text files hold the model and report design. The steps below use them.
+
+| File | What it is |
+|---|---|
+| `powerquery/pDataFolder.pq` | Parameter: the folder that holds the six CSVs |
+| `powerquery/<table>.pq` | One query per table, with column types set |
+| `dax/measures.dax` | Full measure library, grouped by display folder |
+| `theme/report_theme.json` | Report theme (US `#1F4E79`, EU `#0F8B8D`) |
+| `docs/SCHEMA.md` | Star schema, keys and relationships |
+| `docs/DATA_DICTIONARY.md` | Every column of every table |
+| `docs/DASHBOARD_SPEC.md` | Visuals, fields, slicers and interactions for the four pages |
+| `scripts/validate_model.py` | Checks keys, orphans, duplicates and types in the CSVs |
+
+Run `python scripts/validate_model.py` before building. It should end with "Validation passed." and print the forecast and scenario check values used below.
+
 ## 1. The tables
 
 | File | Rows | Columns |
@@ -23,14 +40,15 @@ Things to know before you start:
 
 ## 2. Import
 
-1. Home > Get data > Text/CSV. Load all six files.
-2. In Power Query (Transform data), check the types:
+1. Home > Transform data. Create the `pDataFolder` parameter from `powerquery/pDataFolder.pq` and set it to your full path to `data/processed/powerbi/` (ending with a slash).
+2. For each table, New Source > Blank Query > Advanced Editor, paste the matching `powerquery/<table>.pq`, and name the query after the file. The queries already set the types below. (Or use Get data > Text/CSV for each file and set the types by hand.)
+3. The types to expect:
    - `date_key`, `market_key`, `product_key`, `scenario_key`: Whole number.
    - `dim_date[date]`: Date.
    - `value_usd`, `value_usd_real2025`, `point`, `lo80` ... `hi95`, `baseline_usd`, `scenario_usd`, `change_usd`: Decimal number.
    - `change_pct`: Decimal number, then format as percentage in the model.
    - `hs4_codes`: Text (Power BI may try to read "61" as a number).
-3. Close & Apply.
+4. Close & Apply.
 
 ## 3. Relationships
 
@@ -55,6 +73,8 @@ Then:
 - Create a `Measures` table: Home > Enter data, one dummy column, name it `_Measures`. Put every measure below in it.
 
 ## 4. DAX measures
+
+The full library is in `dax/measures.dax`, with display folders and format strings. You can apply it with Tabular Editor or type the measures in by hand. Its names are capitalised slightly differently (for example `Total Imports`) and it adds level-safe forecast measures, revenue at risk, a two-market HHI and text labels. The short versions below are enough for a first build.
 
 Format money measures as currency with 0 decimals, or use the `bn` versions in cards.
 
@@ -189,7 +209,7 @@ Use one canvas size (16:9, 1280 x 720) and the same slicer position on every pag
 
 ## 6. Formatting
 
-- One colour per market, used everywhere (for example US dark blue, EU teal). Set them in View > Themes > Customize, or in each visual's data colours.
+- View > Themes > Browse for themes > `theme/report_theme.json`. Use one colour per market everywhere: US `#1F4E79`, EU `#0F8B8D`. Legends sort EU first, so set the two colours in each visual's data colours.
 - Show money in bn with one decimal on cards; keep the axis in bn too.
 - Turn off gridlines you do not need and the visual borders. Titles should say what the chart shows ("US imports by product group, $bn").
 - Format `YoY %`, `Share of market`, `Change %` as percentages with one decimal.

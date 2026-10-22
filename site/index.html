@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bangladesh Garment Exports</title>
+  <meta name="description" content="US and EU imports of Bangladeshi apparel since 2010, 12-month forecasts with backtests, and revenue-at-risk scenarios.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-row">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>Bangladesh Garment Exports to the US and EU</h1>
+          <p class="sub">Trends, 12-month forecasts and revenue at risk · HS 61 + 62</p>
+        </div>
+      </div>
+      <a class="btn ghost small" href="https://github.com/takyurp09/rmg-export-forecasting">Code on GitHub</a>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Dashboard pages">
+      <button role="tab" id="tab-overview" aria-controls="page-overview" aria-selected="true">Overview</button>
+      <button role="tab" id="tab-products" aria-controls="page-products" aria-selected="false" tabindex="-1">Products &amp; markets</button>
+      <button role="tab" id="tab-forecast" aria-controls="page-forecast" aria-selected="false" tabindex="-1">Forecast</button>
+      <button role="tab" id="tab-scenarios" aria-controls="page-scenarios" aria-selected="false" tabindex="-1">Scenarios</button>
+    </nav>
+    <div class="banner" role="note">Importer-reported (CIF) values in nominal US dollars. They run above Bangladesh's own FOB export figures.</div>
+  </header>
+
+  <main id="main">
+    <div id="loading" class="loading" role="status">Loading data…</div>
+
+    <section class="page" id="page-overview" role="tabpanel" aria-labelledby="tab-overview">
+      <div class="kpis" id="kpis"></div>
+      <article class="card">
+        <header class="card-h"><h2>Monthly imports from Bangladesh</h2><span class="hint">US and EU27, $bn per month</span></header>
+        <div class="chart tall" id="c-monthly" role="img" aria-label="Line chart of monthly US and EU imports of apparel from Bangladesh since 2010, with Rana Plaza, COVID-19 and the 2024 unrest marked."></div>
+        <p class="note" id="ov-note"></p>
+      </article>
+    </section>
+
+    <section class="page" id="page-products" role="tabpanel" aria-labelledby="tab-products" hidden>
+      <div class="filters">
+        <div class="filter">
+          <label for="f-market">Market</label>
+          <select id="f-market"><option value="US">United States (12 product groups)</option><option value="EU">EU27 (knit and woven)</option></select>
+        </div>
+      </div>
+      <div class="grid g-1-1">
+        <article class="card">
+          <header class="card-h"><h2>Annual imports by product group</h2><span class="hint">$bn, full calendar years</span></header>
+          <div class="chart tall" id="c-mix" role="img" aria-label="Stacked bar chart of annual imports by product group."></div>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Year-on-year growth</h2><span class="hint">% change on the previous year</span></header>
+          <div class="chart tall" id="c-yoy" role="img" aria-label="Heatmap of year-on-year growth by product group and year."></div>
+        </article>
+      </div>
+      <div class="grid g-1-1">
+        <article class="card">
+          <header class="card-h"><h2>Top 10 markets, 2023</h2><span class="hint">Mirror data (CIF), $bn and % of world imports from Bangladesh</span></header>
+          <div class="chart tall" id="c-top" role="img" aria-label="Bar chart of the ten largest importers of Bangladeshi apparel in 2023."></div>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Market concentration (HHI)</h2><span class="hint">Mirror data (CIF), 2010-2023</span></header>
+          <div class="chart tall" id="c-hhi" role="img" aria-label="Line chart of the Herfindahl-Hirschman index of export markets, with the EU counted as one bloc and as separate countries."></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="page" id="page-forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
+      <div class="filters">
+        <div class="filter grow">
+          <label for="f-series">Series</label>
+          <select id="f-series"></select>
+        </div>
+      </div>
+      <div class="kpis small" id="kpis-f"></div>
+      <article class="card">
+        <header class="card-h"><h2 id="fc-title">Forecast</h2><span class="hint">Last 4 years of actuals, point forecast, 80% and 95% intervals</span></header>
+        <div class="chart tall" id="c-fc" role="img" aria-label="Line chart of actual monthly imports and the 12-month forecast with 80 and 95 percent intervals."></div>
+      </article>
+      <article class="card">
+        <header class="card-h"><h2>Backtest</h2><span class="hint">Rolling origin, 7 origins Jul 2022 to Jul 2025, 12-month horizon</span></header>
+        <div class="table-wrap">
+          <table class="tbl" id="t-bt">
+            <caption class="sr-only">Backtest metrics by model</caption>
+            <thead><tr><th scope="col">Model</th><th scope="col" class="num">MASE</th><th scope="col" class="num">Rel. MASE</th><th scope="col" class="num">12-month total error</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="hint small-note">Relative MASE below 1 means the model beat the seasonal naive forecast. Rule: keep models within 1 point of the lowest 12-month total error, then pick the lowest MASE. The highlighted row is the model in use.</p>
+      </article>
+    </section>
+
+    <section class="page" id="page-scenarios" role="tabpanel" aria-labelledby="tab-scenarios" hidden>
+      <div class="grid g-1-1">
+        <article class="card">
+          <header class="card-h"><h2>S1: US demand falls</h2><span class="hint" id="s1-window"></span></header>
+          <div class="ctrl">
+            <label for="s-us">US apparel demand change <output id="o-us"></output></label>
+            <input type="range" id="s-us" min="-20" max="0" step="1" value="-10">
+          </div>
+          <div class="ctrl">
+            <span class="ctrl-l" id="l-e1">Pass-through to imports from Bangladesh</span>
+            <div class="seg" role="radiogroup" aria-labelledby="l-e1" id="seg-e1"></div>
+          </div>
+          <div class="result"><span>US revenue at risk</span><strong id="r-us"></strong><small id="r-us-pct"></small></div>
+          <p class="hint">Each US product group moves by shock × group beta × pass-through. Betas come from past annual growth (2011-2025).</p>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>S2: EU duty after EBA ends</h2><span class="hint" id="s2-window"></span></header>
+          <p class="note">Illustrative only. Duty-free EU access (EBA) runs for 3 years after LDC graduation, so a duty cannot apply before about Nov 2029.</p>
+          <div class="ctrl">
+            <label for="s-eu">EU duty rate <output id="o-eu"></output></label>
+            <input type="range" id="s-eu" min="0" max="12" step="0.1" value="12">
+            <div class="ticks"><button type="button" data-duty="9.6">9.6% standard GSP</button><button type="button" data-duty="12">12% MFN</button></div>
+          </div>
+          <div class="ctrl">
+            <span class="ctrl-l" id="l-e2">Tariff elasticity</span>
+            <div class="seg" role="radiogroup" aria-labelledby="l-e2" id="seg-e2"></div>
+          </div>
+          <div class="result"><span>EU revenue at risk</span><strong id="r-eu"></strong><small id="r-eu-pct"></small></div>
+          <p class="hint">Value change = (1 + duty)<sup>−elasticity</sup> − 1, applied to the EU knit and woven baselines.</p>
+        </article>
+      </div>
+      <div class="grid g-1-1">
+        <article class="card">
+          <header class="card-h"><h2>Your EU result next to the published estimates</h2><span class="hint">Loss, $bn</span></header>
+          <div class="chart" id="c-bench" role="img" aria-label="Bar chart comparing the EU revenue at risk from the sliders with this repo's S2 cases and the WTO estimate."></div>
+          <p class="hint">The WTO figures cover all Bangladeshi goods, not just apparel, and allow trade to shift to other markets.</p>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Loss by product</h2><span class="hint">$bn, current slider settings</span></header>
+          <div class="chart" id="c-risk" role="img" aria-label="Bar chart of revenue at risk by product group under the current slider settings."></div>
+        </article>
+      </div>
+      <article class="card">
+        <header class="card-h"><h2>Assumptions and sources</h2><span class="hint">From outputs/tables/scenario_assumptions.csv</span></header>
+        <div class="table-wrap">
+          <table class="tbl wrap" id="t-ass">
+            <caption class="sr-only">Scenario assumptions and sources</caption>
+            <thead><tr><th scope="col">Scenario</th><th scope="col">Assumption</th><th scope="col">Value</th><th scope="col">Source</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>Data:</strong> UN Comtrade (US imports, monthly; all reporters, annual), Eurostat Comext DS-045409 (EU27 imports, converted with ECB monthly rates), downloaded 21 Oct 2026. Importer-reported CIF, nominal USD.</p>
+    <p>Muhammad Taky Tahmid · MIT License · <a href="https://github.com/takyurp09/rmg-export-forecasting">github.com/takyurp09/rmg-export-forecasting</a> · <span id="gen"></span></p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

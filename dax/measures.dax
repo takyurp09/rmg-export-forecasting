@@ -1,0 +1,414 @@
+// =====================================================================
+// Bangladesh RMG exports to the US and EU - DAX measure library
+// ---------------------------------------------------------------------
+// Model         : docs/SCHEMA.md (star schema, six tables)
+// Host table    : an empty table "_Measures" (Home > Enter data, one
+//                 dummy column, then hide it). All measures go there.
+// Format        : Tabular Editor style. Each measure is written as
+//                 MEASURE '_Measures'[Name] = <expression>
+//                 followed by a comment with its display folder and
+//                 format string. Paste the block into the DAX query
+//                 view (after DEFINE) or apply it with Tabular Editor.
+//                 When typing a measure by hand in Desktop, drop the
+//                 "MEASURE '_Measures'" prefix.
+// Relationships : all many-to-one, single direction, dimension filters
+//                 fact. fact_scenarios has no date relationship.
+// Units         : value columns are nominal USD (CIF, importer
+//                 reported). "bn" measures divide by 1e9.
+// =====================================================================
+
+DEFINE
+
+// ---------------------------------------------------------------------
+// Display folder: 1 Imports
+// ---------------------------------------------------------------------
+
+    // Imports from Bangladesh, HS 61-62, nominal USD.
+    // fact_exports has no total rows, so a plain SUM is safe at any level.
+    MEASURE '_Measures'[Total Imports] =
+        SUM ( fact_exports[value_usd] )
+        // displayFolder = "1 Imports"; formatString = "$#,0"
+
+    // Same, deflated to 2025 prices.
+    MEASURE '_Measures'[Total Imports (real 2025)] =
+        SUM ( fact_exports[value_usd_real2025] )
+        // displayFolder = "1 Imports"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Total Imports bn] =
+        DIVIDE ( [Total Imports], 1e9 )
+        // displayFolder = "1 Imports"; formatString = "#,0.0"
+
+    // Last month with data in the current filter context. US data end
+    // Jul 2026 and EU data end Aug 2026, so this depends on the market.
+    MEASURE '_Measures'[Latest Month] =
+        CALCULATE (
+            MAX ( dim_date[date] ),
+            FILTER ( fact_exports, fact_exports[value_usd] > 0 )
+        )
+        // displayFolder = "1 Imports"; formatString = "mmm yyyy"
+
+// ---------------------------------------------------------------------
+// Display folder: 2 Growth
+// ---------------------------------------------------------------------
+
+    MEASURE '_Measures'[Imports LY] =
+        CALCULATE ( [Total Imports], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+        // displayFolder = "2 Growth"; formatString = "$#,0"
+
+    // Blank when last year has no data (US series start in 2010).
+    MEASURE '_Measures'[YoY %] =
+        VAR cur = [Total Imports]
+        VAR ly = [Imports LY]
+        RETURN
+            IF ( NOT ISBLANK ( cur ) && NOT ISBLANK ( ly ), DIVIDE ( cur - ly, ly ) )
+        // displayFolder = "2 Growth"; formatString = "0.0%"
+
+    // 12 months ending at the last date in context. Use with a month
+    // axis, or on a card it ends at the last month in the slicer range.
+    MEASURE '_Measures'[Rolling 12m] =
+        CALCULATE (
+            [Total Imports],
+            DATESINPERIOD ( dim_date[date], MAX ( dim_date[date] ), -12, MONTH )
+        )
+        // displayFolder = "2 Growth"; formatString = "$#,0"
+
+    // Card version: always ends at the latest month with data, even when
+    // dim_date runs on into the forecast months.
+    MEASURE '_Measures'[Rolling 12m (latest)] =
+        VAR lastActual = [Latest Month]
+        RETURN
+            CALCULATE (
+                [Total Imports],
+                DATESINPERIOD ( dim_date[date], lastActual, -12, MONTH )
+            )
+        // displayFolder = "2 Growth"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Rolling 12m (latest) bn] =
+        DIVIDE ( [Rolling 12m (latest)], 1e9 )
+        // displayFolder = "2 Growth"; formatString = "#,0.0"
+
+    MEASURE '_Measures'[Rolling 12m LY] =
+        CALCULATE ( [Rolling 12m], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+        // displayFolder = "2 Growth"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Rolling 12m YoY %] =
+        DIVIDE ( [Rolling 12m] - [Rolling 12m LY], [Rolling 12m LY] )
+        // displayFolder = "2 Growth"; formatString = "0.0%"
+
+    // Card version that ends at the latest month with data.
+    MEASURE '_Measures'[Rolling 12m (latest) YoY %] =
+        VAR lastActual = [Latest Month]
+        VAR cur =
+            CALCULATE ( [Total Imports], DATESINPERIOD ( dim_date[date], lastActual, -12, MONTH ) )
+        VAR prev =
+            CALCULATE (
+                [Total Imports],
+                DATESINPERIOD ( dim_date[date], EDATE ( lastActual, -12 ), -12, MONTH )
+            )
+        RETURN
+            DIVIDE ( cur - prev, prev )
+        // displayFolder = "2 Growth"; formatString = "0.0%"
+
+// ---------------------------------------------------------------------
+// Display folder: 3 Shares & concentration
+// ---------------------------------------------------------------------
+
+    // Share of the US + EU total held by the market(s) in context.
+    // Keeps product and date filters, removes the market filter.
+    MEASURE '_Measures'[Share of Market] =
+        DIVIDE (
+            [Total Imports],
+            CALCULATE ( [Total Imports], REMOVEFILTERS ( dim_market ) )
+        )
+        // displayFolder = "3 Shares & concentration"; formatString = "0.0%"
+
+    // A product group's share of its market's imports. Keeps the market
+    // filter, removes the product filter. Read it with one market
+    // selected: US groups and EU chapters are different product keys.
+    MEASURE '_Measures'[Product Share] =
+        DIVIDE (
+            [Total Imports],
+            CALCULATE ( [Total Imports], REMOVEFILTERS ( dim_product ) )
+        )
+        // displayFolder = "3 Shares & concentration"; formatString = "0.0%"
+
+    // HHI approach 1: concentration across product groups, 0-10,000.
+    // Sum of squared product shares (in %) within the filter context.
+    // Use with one market. US has 12 groups; EU has only 2 chapter
+    // rows (knit, woven), so the EU value is not comparable with the US.
+    MEASURE '_Measures'[HHI Products] =
+        VAR total =
+            CALCULATE ( [Total Imports], REMOVEFILTERS ( dim_product ) )
+        RETURN
+            IF (
+                NOT ISBLANK ( total ),
+                SUMX (
+                    VALUES ( dim_product[product_key] ),
+                    VAR s = DIVIDE ( [Total Imports], total )
+                    RETURN ( s * 100 ) ^ 2
+                )
+            )
+        // displayFolder = "3 Shares & concentration"; formatString = "#,0"
+
+    // HHI approach 2: concentration across the two destination markets
+    // (US vs EU) for Bangladesh's HS 61-62 sales to them. 5,000 = even
+    // split, 10,000 = one market only. This is not the all-country HHI
+    // in outputs/tables/hhi_by_year.csv, which needs mirror data from
+    // every importer and is not in this model.
+    // Compare years that both series cover (2010 on).
+    MEASURE '_Measures'[HHI Markets (US vs EU)] =
+        VAR byMarket =
+            CALCULATETABLE (
+                ADDCOLUMNS ( VALUES ( dim_market[market_key] ), "@v", [Total Imports] ),
+                REMOVEFILTERS ( dim_market )
+            )
+        VAR total = SUMX ( byMarket, [@v] )
+        RETURN
+            IF (
+                NOT ISBLANK ( total ),
+                SUMX ( byMarket, ( DIVIDE ( [@v], total ) * 100 ) ^ 2 )
+            )
+        // displayFolder = "3 Shares & concentration"; formatString = "#,0"
+
+// ---------------------------------------------------------------------
+// Display folder: 4 Forecast
+// ---------------------------------------------------------------------
+
+    // Raw sums. These double count if Total and Product group rows are
+    // both in context; prefer the "(level-safe)" measures below.
+    MEASURE '_Measures'[Forecast Point] =
+        SUM ( fact_forecast[point] )
+        // displayFolder = "4 Forecast\Raw"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast lo80] =
+        SUM ( fact_forecast[lo80] )
+        // displayFolder = "4 Forecast\Raw"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast hi80] =
+        SUM ( fact_forecast[hi80] )
+        // displayFolder = "4 Forecast\Raw"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast lo95] =
+        SUM ( fact_forecast[lo95] )
+        // displayFolder = "4 Forecast\Raw"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast hi95] =
+        SUM ( fact_forecast[hi95] )
+        // displayFolder = "4 Forecast\Raw"; formatString = "$#,0"
+
+    // Level-safe point forecast: uses the market Total row unless the
+    // user has picked specific product groups (then the group rows).
+    // Interval bounds are not additive across groups, so the lo/hi
+    // measures below only use the Total row or a single group.
+    MEASURE '_Measures'[Forecast (level-safe)] =
+        IF (
+            ISFILTERED ( dim_product[product_key] ) || ISFILTERED ( dim_product[product_group] )
+                || ISFILTERED ( dim_product[product_label] ) || ISFILTERED ( dim_product[chapter] ),
+            CALCULATE ( [Forecast Point], fact_forecast[level] = "Product group" ),
+            CALCULATE ( [Forecast Point], fact_forecast[level] = "Total" )
+        )
+        // displayFolder = "4 Forecast"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast lo80 (level-safe)] =
+        IF (
+            HASONEVALUE ( dim_product[product_key] ),
+            CALCULATE ( [Forecast lo80], fact_forecast[level] = "Product group" ),
+            CALCULATE ( [Forecast lo80], fact_forecast[level] = "Total" )
+        )
+        // displayFolder = "4 Forecast"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast hi80 (level-safe)] =
+        IF (
+            HASONEVALUE ( dim_product[product_key] ),
+            CALCULATE ( [Forecast hi80], fact_forecast[level] = "Product group" ),
+            CALCULATE ( [Forecast hi80], fact_forecast[level] = "Total" )
+        )
+        // displayFolder = "4 Forecast"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast lo95 (level-safe)] =
+        IF (
+            HASONEVALUE ( dim_product[product_key] ),
+            CALCULATE ( [Forecast lo95], fact_forecast[level] = "Product group" ),
+            CALCULATE ( [Forecast lo95], fact_forecast[level] = "Total" )
+        )
+        // displayFolder = "4 Forecast"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast hi95 (level-safe)] =
+        IF (
+            HASONEVALUE ( dim_product[product_key] ),
+            CALCULATE ( [Forecast hi95], fact_forecast[level] = "Product group" ),
+            CALCULATE ( [Forecast hi95], fact_forecast[level] = "Total" )
+        )
+        // displayFolder = "4 Forecast"; formatString = "$#,0"
+
+    // Next-12-month market total from the Total rows. Ignores the date
+    // filter so the card shows the full forecast window.
+    MEASURE '_Measures'[Forecast 12m] =
+        CALCULATE (
+            [Forecast Point],
+            fact_forecast[level] = "Total",
+            REMOVEFILTERS ( dim_date ),
+            REMOVEFILTERS ( dim_product )
+        )
+        // displayFolder = "4 Forecast"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Forecast 12m bn] =
+        DIVIDE ( [Forecast 12m], 1e9 )
+        // displayFolder = "4 Forecast"; formatString = "#,0.0"
+
+    // Actual imports in the 12 months before the forecast starts, per
+    // market (US ends Jul 2026, EU Aug 2026). Computed per market and
+    // added up so both markets together still line up correctly.
+    MEASURE '_Measures'[Actual Last 12m] =
+        SUMX (
+            VALUES ( dim_market[market_key] ),
+            VAR lastKey =
+                CALCULATE (
+                    MAX ( fact_exports[date_key] ),
+                    REMOVEFILTERS ( dim_date ),
+                    REMOVEFILTERS ( dim_product )
+                )
+            VAR lastActual =
+                LOOKUPVALUE ( dim_date[date], dim_date[date_key], lastKey )
+            RETURN
+                CALCULATE (
+                    [Total Imports],
+                    REMOVEFILTERS ( dim_product ),
+                    DATESINPERIOD ( dim_date[date], lastActual, -12, MONTH )
+                )
+        )
+        // displayFolder = "4 Forecast"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Actual Last 12m bn] =
+        DIVIDE ( [Actual Last 12m], 1e9 )
+        // displayFolder = "4 Forecast"; formatString = "#,0.0"
+
+    // Expected change, next 12 months vs last 12 months.
+    // Check: about +0.7% (US) and +8.2% (EU), see outputs/tables/forecast_headline.csv.
+    MEASURE '_Measures'[Forecast vs Last 12m %] =
+        DIVIDE ( [Forecast 12m] - [Actual Last 12m], [Actual Last 12m] )
+        // displayFolder = "4 Forecast"; formatString = "+0.0%;-0.0%;0.0%"
+
+    // Line-chart helper: actual where data exist, blank afterwards, so
+    // actual and forecast lines can share one date axis.
+    MEASURE '_Measures'[Actual (chart)] =
+        IF ( MAX ( dim_date[date] ) <= CALCULATE ( [Latest Month], REMOVEFILTERS ( dim_date ) ), [Total Imports] )
+        // displayFolder = "4 Forecast"; formatString = "$#,0"
+
+    // Actual minus forecast for months where both exist. The forecast
+    // starts after the last actual month, so this stays blank until new
+    // data are loaded. It is here for refreshes with new months.
+    MEASURE '_Measures'[Actual vs Forecast] =
+        VAR a = [Total Imports]
+        VAR f = [Forecast (level-safe)]
+        RETURN
+            IF ( NOT ISBLANK ( a ) && NOT ISBLANK ( f ), a - f )
+        // displayFolder = "4 Forecast"; formatString = "$#,0;-$#,0"
+
+    MEASURE '_Measures'[Actual vs Forecast %] =
+        VAR f = [Forecast (level-safe)]
+        RETURN
+            DIVIDE ( [Actual vs Forecast], f )
+        // displayFolder = "4 Forecast"; formatString = "+0.0%;-0.0%;0.0%"
+
+// ---------------------------------------------------------------------
+// Display folder: 5 Scenarios
+// ---------------------------------------------------------------------
+// fact_scenarios has no date. Do not average change_pct: [Scenario Change %]
+// weights by baseline.
+
+    MEASURE '_Measures'[Scenario Baseline] =
+        SUM ( fact_scenarios[baseline_usd] )
+        // displayFolder = "5 Scenarios"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Scenario Value] =
+        SUM ( fact_scenarios[scenario_usd] )
+        // displayFolder = "5 Scenarios"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Scenario Change] =
+        SUM ( fact_scenarios[change_usd] )
+        // displayFolder = "5 Scenarios"; formatString = "$#,0;-$#,0"
+
+    MEASURE '_Measures'[Scenario Baseline bn] =
+        DIVIDE ( [Scenario Baseline], 1e9 )
+        // displayFolder = "5 Scenarios"; formatString = "#,0.00"
+
+    MEASURE '_Measures'[Scenario Value bn] =
+        DIVIDE ( [Scenario Value], 1e9 )
+        // displayFolder = "5 Scenarios"; formatString = "#,0.00"
+
+    // Check: S1 mid, US = about -0.79bn; S2 mid, EU = about -7.76bn.
+    MEASURE '_Measures'[Scenario Change bn] =
+        DIVIDE ( [Scenario Change], 1e9 )
+        // displayFolder = "5 Scenarios"; formatString = "+#,0.00;-#,0.00"
+
+    MEASURE '_Measures'[Scenario Change %] =
+        DIVIDE ( [Scenario Change], [Scenario Baseline] )
+        // displayFolder = "5 Scenarios"; formatString = "+0.0%;-0.0%;0.0%"
+
+    // Revenue at risk: lost import value, shown as a positive number.
+    // Adds only rows with a loss, so a gain in one group does not hide a
+    // loss in another.
+    MEASURE '_Measures'[Revenue at Risk] =
+        SUMX (
+            FILTER ( fact_scenarios, fact_scenarios[change_usd] < 0 ),
+            - fact_scenarios[change_usd]
+        )
+        // displayFolder = "5 Scenarios"; formatString = "$#,0"
+
+    MEASURE '_Measures'[Revenue at Risk bn] =
+        DIVIDE ( [Revenue at Risk], 1e9 )
+        // displayFolder = "5 Scenarios"; formatString = "#,0.00"
+
+    // Revenue at risk as a share of the baseline in context.
+    MEASURE '_Measures'[Revenue at Risk %] =
+        DIVIDE ( [Revenue at Risk], [Scenario Baseline] )
+        // displayFolder = "5 Scenarios"; formatString = "0.0%"
+
+// ---------------------------------------------------------------------
+// Display folder: 6 Labels
+// ---------------------------------------------------------------------
+// Text measures for cards, titles and subtitles.
+
+    MEASURE '_Measures'[Selected Market Label] =
+        IF (
+            HASONEVALUE ( dim_market[market] ),
+            VALUES ( dim_market[market] ),
+            "US + EU"
+        )
+        // displayFolder = "6 Labels"
+
+    MEASURE '_Measures'[Latest Month Label] =
+        "Data to " & FORMAT ( [Latest Month], "mmm yyyy" )
+        // displayFolder = "6 Labels"
+
+    MEASURE '_Measures'[Rolling 12m Label] =
+        FORMAT ( [Rolling 12m (latest) bn], "$#,0.0" ) & "bn, "
+            & FORMAT ( [Rolling 12m (latest) YoY %], "+0.0%;-0.0%" ) & " YoY"
+        // displayFolder = "6 Labels"
+
+    MEASURE '_Measures'[Forecast Label] =
+        "Next 12m: " & FORMAT ( [Forecast 12m bn], "$#,0.0" ) & "bn ("
+            & FORMAT ( [Forecast vs Last 12m %], "+0.0%;-0.0%" ) & " vs last 12m)"
+        // displayFolder = "6 Labels"
+
+    MEASURE '_Measures'[Forecast Interval Label] =
+        "80% range: " & FORMAT ( DIVIDE ( [Forecast lo80 (level-safe)], 1e9 ), "$#,0.00" ) & "bn to "
+            & FORMAT ( DIVIDE ( [Forecast hi80 (level-safe)], 1e9 ), "$#,0.00" ) & "bn"
+        // displayFolder = "6 Labels"
+
+    MEASURE '_Measures'[Scenario Label] =
+        FORMAT ( [Scenario Change bn], "+$#,0.00;-$#,0.00" ) & "bn ("
+            & FORMAT ( [Scenario Change %], "+0.0%;-0.0%" ) & ")"
+        // displayFolder = "6 Labels"
+
+    MEASURE '_Measures'[Title - Overview] =
+        "Bangladesh garment imports, " & [Selected Market Label] & " (" & [Latest Month Label] & ")"
+        // displayFolder = "6 Labels"
+
+    MEASURE '_Measures'[Data Note] =
+        "Importer-reported (CIF), nominal USD. Sources: UN Comtrade (US), Eurostat Comext (EU)."
+        // displayFolder = "6 Labels"
+
+EVALUATE
+    { [Total Imports] }
