@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# caches and editor files
+.env
+*.egg-info/
+.cache/
+.pytest_cache/
+.ruff_cache/
+catboost_info/
+lightgbm_*.txt
+*.log
+*.tmp
+~$*
+# Power BI local cache (keep the .pbix itself only if under 20 MB)
+*.pbix.bak
+dashboard/**/.pbi/cache*
+# raw downloads larger than ~10 MB should not be committed; current data/raw is 14 MB total, all files < 5 MB
+data/raw/**/*.zip
+data/raw/**/*.7z

@@ -1,0 +1,16 @@
+product_key,chapter,product_group,hs4_codes,market_scope,is_total
+1,Knit,Coats & jackets,"6101,6102",US,0
+2,Knit,"Knit (HS61, all)",61,EU,0
+3,Knit,Knit shirts & blouses,"6105,6106",US,0
+4,Knit,Knit suits & trousers,"6103,6104",US,0
+5,Knit,Other apparel,other 61xx,US,0
+6,Knit,Sweaters & pullovers (knit),6110,US,0
+7,Knit,T-shirts & vests (knit),6109,US,0
+8,Knit,Underwear & nightwear,"6107,6108",US,0
+9,Woven,Coats & jackets,"6201,6202",US,0
+10,Woven,Other apparel,other 62xx,US,0
+11,Woven,Underwear & nightwear,"6207,6208,6212",US,0
+12,Woven,"Woven (HS62, all)",62,EU,0
+13,Woven,Woven shirts & blouses,"6205,6206",US,0
+14,Woven,Woven trousers & suits,"6203,6204",US,0
+15,All,All products,"61,62","US,EU",1

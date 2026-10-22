@@ -1,0 +1,11 @@
+fact,value,unit,method
+US CAGR 2010-2025 (nominal),4.7988,%/yr,"(annual US imports 2025 / 2010)^(1/15) - 1; calendar-year sums of value_usd, rmg_long.csv. 2010 = 4.06bn, 2025 = 8.21bn"
+"US peak year (nominal, 2010-2025)",2022.0,year,year with highest annual value_usd sum; 9.83bn
+US 2025 vs 2022 change (nominal),-16.4639,%,annual sum 2025 / 2022 - 1; 9.83bn to 8.21bn
+EU CAGR 2010-2025 (nominal),7.981,%/yr,"(annual EU imports 2025 / 2010)^(1/15) - 1; calendar-year sums of value_usd, rmg_long.csv. 2010 = 6.92bn, 2025 = 21.90bn"
+"EU peak year (nominal, 2010-2025)",2022.0,year,year with highest annual value_usd sum; 23.00bn
+EU 2025 vs 2022 change (nominal),-4.7835,%,annual sum 2025 / 2022 - 1; 23.00bn to 21.90bn
+US CAGR 2010-2025 (real 2025 USD),2.1112,%/yr,"same as nominal CAGR, using value_usd_real2025 (CPI-U deflated)"
+"T-shirts + sweaters share of US imports, 2025",18.217,%,"sum of the two product groups / all US groups, 2025 annual nominal value"
+HHI (EU as bloc) change 2010-2023,170.6598,HHI points,"hhi_by_year.csv, 2023 (3288) minus 2010 (3117); 2023 = last complete mirror year"
+"EU27 share of world imports from BD, 2023",54.61,%,"mirror data, CIF basis, hhi_by_year.csv"
