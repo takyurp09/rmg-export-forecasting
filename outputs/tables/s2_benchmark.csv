@@ -1,7 +1,7 @@
 estimate,coverage,loss_usd_bn,loss_pct
-"This repo: S2 EU 12% MFN duty (post-2029, no GSP) [low]","EU27 imports of HS 61+62, 12-month baseline",5.904036688916615,0.2636041390760412
-"This repo: S2 EU 12% MFN duty (post-2029, no GSP) [mid]","EU27 imports of HS 61+62, 12-month baseline",7.761379300863778,0.3465309950542041
-"This repo: S2 EU 12% MFN duty (post-2029, no GSP) [high]","EU27 imports of HS 61+62, 12-month baseline",12.604596286650366,0.5627715286358144
-This repo: S2b EU 9.6% standard-GSP duty (post-2029) [mid],"EU27 imports of HS 61+62, 12-month baseline",6.536358389648861,0.29183611430301226
+"This repo: S2 EU 12% MFN duty (post-2029, no GSP) [low]","EU27 imports of HS 61+62, 12-month baseline",5.892515679141103,0.2636041390760411
+"This repo: S2 EU 12% MFN duty (post-2029, no GSP) [mid]","EU27 imports of HS 61+62, 12-month baseline",7.746917639398097,0.34656158184787256
+"This repo: S2 EU 12% MFN duty (post-2029, no GSP) [high]","EU27 imports of HS 61+62, 12-month baseline",12.57999994948541,0.5627715286358143
+This repo: S2b EU 9.6% standard-GSP duty (post-2029) [mid],"EU27 imports of HS 61+62, 12-month baseline",6.524206252641182,0.291863079545116
 "Bekkers & Cariola (2022), WTO ERSD-2022-05: preference-granting markets","All goods, all preference-granting markets, +7.9 pp effective tariff",6.199333,0.23
 "Bekkers & Cariola (2022), WTO ERSD-2022-05: all markets","All goods, all markets, net of trade diversion",5.372738,0.14

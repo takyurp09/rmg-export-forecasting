@@ -1,5 +1,5 @@
 {
- "last_run_utc": "2026-10-24T14:22:10Z",
+ "last_run_utc": "2026-10-24T14:32:55Z",
  "latest_month_us": "2026-07",
  "latest_month_eu": "2026-08",
  "rows": 7210,
@@ -34,25 +34,25 @@
   {
    "step": "clean",
    "path": "src/clean.py",
-   "seconds": 42,
+   "seconds": 41,
    "status": "ok"
   },
   {
    "step": "notebook 01 explore",
    "path": "notebooks/01_explore.ipynb",
-   "seconds": 11,
+   "seconds": 9,
    "status": "ok"
   },
   {
    "step": "notebook 02 forecast",
    "path": "notebooks/02_forecast.ipynb",
-   "seconds": 465,
+   "seconds": 484,
    "status": "ok"
   },
   {
    "step": "notebook 03 scenarios",
    "path": "notebooks/03_scenarios.ipynb",
-   "seconds": 4,
+   "seconds": 5,
    "status": "ok"
   },
   {
@@ -64,13 +64,13 @@
   {
    "step": "notebook 05 price/volume",
    "path": "notebooks/05_price_volume.ipynb",
-   "seconds": 5,
+   "seconds": 6,
    "status": "ok"
   },
   {
    "step": "validate model",
    "path": "scripts/validate_model.py",
-   "seconds": 1,
+   "seconds": 0,
    "status": "ok"
   },
   {
