@@ -60,8 +60,8 @@ jobs:
         id: commit
         run: |
           git add -A data outputs site
-          # Figures can differ by a few bytes between runs, so only data files decide.
-          if git diff --cached --quiet -- data site/data outputs/tables ':(exclude)site/data/refresh_status.json'; then
+          # Model outputs differ in the 6th digit between Mac and Linux, so only new raw downloads decide.
+          if git diff --cached --quiet -- data/raw; then
             echo "No data changes; nothing to commit."
             exit 0
           fi
