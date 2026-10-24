@@ -1,0 +1,78 @@
+name: Monthly data refresh
+
+on:
+  schedule:
+    - cron: "0 6 6 * *"   # 06:00 UTC on the 6th of each month
+  workflow_dispatch:
+    inputs:
+      skip_download:
+        description: "Rebuild from cached data only"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write   # to start pages.yml after the push
+
+concurrency:
+  group: data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      # prophet ships manylinux wheels with CmdStan bundled, so no compiler step is needed.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -c "import prophet, lightgbm, statsmodels; print('imports ok')"
+
+      - name: Run pipeline
+        env:
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+          MPLBACKEND: Agg
+        run: |
+          if [ "${{ inputs.skip_download }}" = "true" ]; then
+            python scripts/refresh_pipeline.py --skip-download
+          else
+            python scripts/refresh_pipeline.py
+          fi
+
+      - name: Show status
+        if: always()
+        run: cat site/data/refresh_status.json || true
+
+      # Commit only when the data changed (not just the status timestamp).
+      # A push made with GITHUB_TOKEN does not trigger other workflows,
+      # so pages.yml is started explicitly afterwards.
+      - name: Commit refreshed outputs
+        id: commit
+        run: |
+          git add -A data outputs site
+          # Figures can differ by a few bytes between runs, so only data files decide.
+          if git diff --cached --quiet -- data site/data outputs/tables ':(exclude)site/data/refresh_status.json'; then
+            echo "No data changes; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Monthly data refresh $(date -u +%Y-%m-%d)"
+          git push origin HEAD:main
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Redeploy site
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main

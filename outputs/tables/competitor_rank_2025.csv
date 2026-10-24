@@ -1,0 +1,19 @@
+market,year,rank,partner,country,value_usd_bn,share_pct
+US,2025,1,VN,Vietnam,17.02,20.82
+US,2025,2,CN,China,11.952,14.62
+US,2025,3,BD,Bangladesh,8.209,10.04
+US,2025,4,IN,India,5.187,6.35
+US,2025,5,KH,Cambodia,5.069,6.2
+US,2025,6,ID,Indonesia,4.823,5.9
+US,2025,7,PK,Pakistan,2.557,3.13
+US,2025,8,LK,Sri Lanka,1.862,2.28
+US,2025,9,TR,Türkiye,0.941,1.15
+EU,2025,1,CN,China,34.452,32.24
+EU,2025,2,BD,Bangladesh,21.903,20.5
+EU,2025,3,TR,Türkiye,9.42,8.82
+EU,2025,4,KH,Cambodia,5.198,4.86
+EU,2025,5,VN,Vietnam,5.127,4.8
+EU,2025,6,IN,India,5.088,4.76
+EU,2025,7,PK,Pakistan,4.37,4.09
+EU,2025,8,LK,Sri Lanka,1.551,1.45
+EU,2025,9,ID,Indonesia,1.105,1.03

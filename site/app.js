@@ -26,6 +26,12 @@
       legend: { type: 'scroll', top: 0, left: 0, right: 0, textStyle: { color: C.muted } }
     };
   };
+  // category month axis: ticks and labels only on January
+  var xMonths = function (data, every) {
+    var jan = function (i, v) { return v.slice(5, 7) === '01'; };
+    return { type: 'category', data: data, boundaryGap: false, axisTick: { interval: jan },
+      axisLabel: { color: C.muted, interval: function (i, v) { return jan(i, v) && (+v.slice(0, 4)) % (every || 1) === 0; }, formatter: function (v) { return v.slice(0, 4); } } };
+  };
   var yBn = function (d) { return { type: 'value', axisLabel: { color: C.muted, formatter: function (v) { return '$' + (v / 1e9).toFixed(d == null ? 1 : d) + 'bn'; } }, splitLine: { lineStyle: { color: C.grid } } }; };
 
   // ---------- tabs ----------
@@ -49,7 +55,7 @@
       var n = tabs[(j + tabs.length) % tabs.length]; n.focus(); show(n);
     });
   });
-  window.addEventListener("hashchange", function () { var t = document.getElementById("tab-" + location.hash.slice(1)); if (t && t.getAttribute("aria-selected") !== "true") show(t); });
+  window.addEventListener("hashchange", function () { var t = tabFor(location.hash.slice(1)); if (t && t.getAttribute("aria-selected") !== "true") show(t); });
   var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { Object.keys(charts).forEach(function (k) { charts[k].resize(); }); }, 120); });
 
   // ---------- Overview ----------
@@ -63,14 +69,17 @@
       kpiCard('EU27, last 12 months', bn(e.last12), 'to ' + monthName(e.last12_end) + ' · <span class="' + cls(e.yoy) + '">' + pct(e.yoy, 1, true) + '</span> on prior 12m', C.eu),
       kpiCard('2025 vs 2022 peak', '<span class="neg">' + pct(u.vs_peak) + '</span> <span class="pair">US</span>', 'EU27 <span class="neg">' + pct(e.vs_peak) + '</span> · US ' + bn(u.peak2022) + ' → ' + bn(u.y2025), C.off),
       kpiCard('Forecast, next 12 months', '<span class="' + cls(e.fc_change) + '">' + pct(e.fc_change, 1, true) + '</span> <span class="pair">EU</span>', 'EU27 ' + bn(e.next12) + ' · US ' + bn(u.next12) + ' (' + pct(u.fc_change, 1, true) + ')', C.green),
-      kpiCard('Relative MASE', u.rel_mase.toFixed(2) + ' <span class="pair">US</span> ' + e.rel_mase.toFixed(2) + ' <span class="pair">EU</span>', 'Below 1 beats seasonal naive (' + u.model + ' US, ' + e.model + ' EU)', C.sky)
+      kpiCard('Relative MASE', u.rel_mase.toFixed(2) + ' <span class="pair">US</span> ' + e.rel_mase.toFixed(2) + ' <span class="pair">EU</span>', 'Below 1 beats seasonal naive (' + u.model + ' US, ' + e.model + ' EU)', C.sky),
+      kpiCard('Share of US apparel imports, 2025', o.share.US.share.toFixed(1) + '% <span class="pair">rank ' + o.share.US.rank + '</span>', 'Up from ' + o.share.US.s2010.toFixed(1) + '% in 2010 and ' + o.share.US.s2022.toFixed(1) + '% in 2022', C.us),
+      kpiCard('Share of EU apparel imports, 2025', o.share.EU.share.toFixed(1) + '% <span class="pair">rank ' + o.share.EU.rank + '</span>', 'Down from ' + o.share.EU.s2022.toFixed(1) + '% in 2022 (' + o.share.EU.s2010.toFixed(1) + '% in 2010)', C.eu),
+      kpiCard('EU 2023 fall, in euros', '<span class="neg">' + o.pv2023.value.toFixed(1).replace('-', '−') + '%</span>', 'Mostly volume: ' + o.pv2023.volume_pp.toFixed(1).replace('-', '−') + ' pp volume, ' + o.pv2023.price_pp.toFixed(1).replace('-', '−') + ' pp price', C.off)
     ].join('');
     document.getElementById('ov-note').innerHTML = 'Both markets peaked in 2022. Since 2010 US imports grew ' + u.cagr + '% a year and EU imports ' + e.cagr +
       '% a year. The EU27 took ' + o.eu_share_2023 + '% of world imports from Bangladesh in 2023.';
     var ev = function (x, name) { return { xAxis: x, label: { formatter: name, color: C.muted, fontSize: 11, position: 'insideEndTop' } }; };
     var opt = base();
     opt.tooltip.valueFormatter = function (v) { return v == null ? '–' : bn(v); };
-    opt.xAxis = { type: 'category', data: o.months, boundaryGap: false, axisTick: { interval: function (i, v) { return v.slice(5) === '01'; } }, axisLabel: { color: C.muted, interval: function (i, v) { return v.slice(5) === '01' && +v.slice(0, 4) % 2 === 0; }, formatter: function (v) { return v.slice(0, 4); } } };
+    opt.xAxis = xMonths(o.months, 2);
     opt.yAxis = yBn(1);
     opt.dataZoom = [{ type: 'inside' }];
     opt.series = [
@@ -84,8 +93,9 @@
   }
 
   // ---------- Products & markets ----------
+  var mkt = { v: 'US' };
   function renderMix() {
-    var m = D.products.markets[document.getElementById('f-market').value];
+    var m = D.products.markets[mkt.v];
     var opt = base();
     opt.legend = { type: 'scroll', top: 0, left: 0, right: 0, textStyle: { color: C.muted, fontSize: 11 } };
     opt.grid.top = 40;
@@ -109,8 +119,53 @@
     };
     chart('c-yoy').setOption(h, true);
   }
-  function renderProducts() {
-    document.getElementById('f-market').addEventListener('change', renderMix);
+  function marketSeg(id, state, cb) {
+    var el = document.getElementById(id);
+    el.innerHTML = [['US', 'United States'], ['EU', 'EU27']].map(function (o) { return '<button type="button" role="radio" data-v="' + o[0] + '" aria-checked="' + (o[0] === state.v) + '">' + o[1] + '</button>'; }).join('');
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      state.v = b.dataset.v;
+      Array.prototype.forEach.call(el.children, function (c) { c.setAttribute('aria-checked', c === b); });
+      cb();
+    });
+  }
+  function renderComp() {
+    var c = D.competitors.markets[mkt.v];
+    var o = base();
+    o.legend.textStyle = { color: C.muted, fontSize: 11 };
+    o.tooltip.valueFormatter = function (v) { return v == null ? '–' : v.toFixed(1) + '%'; };
+    o.xAxis = { type: 'category', data: c.years, axisLabel: { color: C.muted } };
+    o.yAxis = { type: 'value', axisLabel: { color: C.muted, formatter: '{value}%' }, splitLine: { lineStyle: { color: C.grid } } };
+    var col = { Bangladesh: C.off, China: C.text, Vietnam: C.green, Cambodia: '#CC79A7', India: C.sky, 'Türkiye': C.eu };
+    o.series = c.countries.map(function (n, i) {
+      var bd = n === 'Bangladesh';
+      return { name: n, type: 'line', data: c.share[i], symbol: 'none', z: bd ? 5 : 2, lineStyle: { width: bd ? 3 : 1.6 }, itemStyle: { color: col[n] || '#a3aab5' } };
+    });
+    chart('c-share').setOption(o, true);
+
+    var rk = c.rank, o2 = base();
+    o2.legend = { show: false }; o2.grid.top = 8; o2.grid.right = 48;
+    o2.tooltip = { trigger: 'axis', confine: true, formatter: function (p) { var r = rk[p[0].dataIndex]; return esc(r[1]) + '<br><b>$' + r[2].toFixed(2) + 'bn</b> · ' + r[3].toFixed(1) + '% share'; } };
+    o2.yAxis = { type: 'category', data: rk.map(function (r) { return r[0] + '. ' + r[1]; }), inverse: true, axisLabel: { color: C.muted } };
+    o2.xAxis = { type: 'value', axisLabel: { color: C.muted, formatter: '${value}bn' }, splitLine: { lineStyle: { color: C.grid } } };
+    o2.series = [{ type: 'bar', data: rk.map(function (r) { return { value: r[2], itemStyle: { color: r[1] === 'Bangladesh' ? C.off : (mkt.v === 'US' ? C.us : C.eu) } }; }),
+      label: { show: true, position: 'right', color: C.muted, fontSize: 11, formatter: function (p) { return rk[p.dataIndex][3].toFixed(1) + '%'; } } }];
+    chart('c-rank').setOption(o2, true);
+
+    var ss = c.shift, o3 = base();
+    document.getElementById('ss-hint').textContent = '$bn; the whole market changed ' + (c.market_growth > 0 ? '+' : '') + c.market_growth.toFixed(1) + '%';
+    o3.tooltip = { trigger: 'axis', confine: true, formatter: function (p) { var r = ss[p[0].dataIndex]; return esc(r[0]) + '<br>Total change <b>$' + r[1].toFixed(2) + 'bn</b><br>Market size: $' + r[2].toFixed(2) + 'bn<br>Share: $' + r[3].toFixed(2) + 'bn'; } };
+    o3.xAxis = { type: 'category', data: ss.map(function (r) { return r[0]; }), axisLabel: { color: C.muted, interval: 0, rotate: mobile() ? 45 : 0, fontSize: 11 } };
+    o3.yAxis = { type: 'value', axisLabel: { color: C.muted, formatter: '${value}bn' }, splitLine: { lineStyle: { color: C.grid } } };
+    o3.series = [
+      { name: 'Market-size effect', type: 'bar', stack: 's', data: ss.map(function (r) { return r[2]; }), itemStyle: { color: C.muted } },
+      { name: 'Share effect', type: 'bar', stack: 's', data: ss.map(function (r) { return { value: r[3], itemStyle: { color: r[0] === 'Bangladesh' ? C.off : C.sky } }; }), itemStyle: { color: C.sky } }
+    ];
+    chart('c-shift').setOption(o3, true);
+  }
+  function renderStrategic() {
+    marketSeg('seg-mkt', mkt, function () { renderMix(); renderComp(); });
+    renderComp();
     renderMix();
     var t = D.products.top10, opt = base();
     opt.legend = { show: false };
@@ -154,7 +209,7 @@
       return out + '<br>Forecast: <b>' + bn(s.point[k], 3) + '</b><br>80%: ' + bn(s.lo80[k], 3) + ' to ' + bn(s.hi80[k], 3) + '<br>95%: ' + bn(s.lo95[k], 3) + ' to ' + bn(s.hi95[k], 3);
     } };
     opt.legend.data = ['Actual', 'Forecast', '80% interval', '95% interval'];
-    opt.xAxis = { type: 'category', data: x, boundaryGap: false, axisLabel: { color: C.muted, formatter: function (v) { return monthName(v); } } };
+    opt.xAxis = xMonths(x);
     var mx = Math.max.apply(null, s.hi95.concat(s.hist));
     opt.yAxis = yBn(mx < 3e8 ? 2 : mx < 3e9 ? 1 : 0);
     opt.series = [
@@ -237,6 +292,7 @@
     o2.series = [{ type: 'bar', data: all.map(function (r) { return { value: Math.max(0, -r.chg), itemStyle: { color: r.name.indexOf('EU') === 0 ? C.eu : C.us } }; }) }];
     chart('c-risk').setOption(o2, true);
   }
+  function renderTactical() { renderForecast(); renderScenarios(); }
   function renderScenarios() {
     var S = D.scenarios;
     document.getElementById('s1-window').textContent = 'Baseline ' + win(S.us_window);
@@ -249,15 +305,94 @@
     compute();
   }
 
-  var RENDER = { overview: renderOverview, products: renderProducts, forecast: renderForecast, scenarios: renderScenarios };
+  // ---------- Operational ----------
+  var trk = { v: 'US' };
+  function renderTrack() {
+    var t = D.tracking[trk.v], o = D.overview, col = trk.v === 'US' ? C.us : C.eu;
+    document.getElementById('trk-model').textContent = '$bn, ' + t.model + ' model';
+    document.querySelector('#t-last tbody').innerHTML = t.last.map(function (r) {
+      return '<tr><td>' + monthName(r[0]) + '</td><td class="num">' + bn(r[1], 2) + '</td><td class="num">' + bn(r[2], 2) + '</td><td class="num ' + cls(r[3]) + '">' + pct(r[3], 1, true) + '</td></tr>';
+    }).join('');
+    document.querySelector('#t-next tbody').innerHTML = t.next.map(function (r) {
+      return '<tr><td>' + monthName(r[0]) + '</td><td class="num">' + bn(r[1], 2) + '</td><td class="num">' + bn(r[2], 2) + ' to ' + bn(r[3], 2) + '</td><td class="num">' + bn(r[4], 2) + '</td></tr>';
+    }).join('');
+    var act = trk.v === 'US' ? o.us : o.eu, mo = o.months;
+    var end = mo.length; while (end > 0 && act[end - 1] == null) end--;
+    var hx = mo.slice(end - 18, end), ha = act.slice(end - 18, end), ly = act.slice(end - 30, end - 12);
+    var fx = t.next.map(function (r) { return r[0]; }), x = hx.concat(fx), nH = hx.length;
+    var lyAll = ly.concat(t.next.map(function (r) { return r[4]; }));
+    var pad = function (a) { return new Array(nH).fill(null).concat(a); };
+    var opt = base();
+    opt.legend.data = ['Actual', 'Same month last year', 'Forecast', '80% interval'];
+    opt.tooltip.valueFormatter = function (v) { return v == null ? '–' : bn(v); };
+    opt.xAxis = xMonths(x);
+    opt.yAxis = yBn(1);
+    opt.series = [
+      { name: '80% base', type: 'line', data: pad(t.next.map(function (r) { return r[2]; })), stack: 'b', symbol: 'none', lineStyle: { opacity: 0 }, tooltip: { show: false } },
+      { name: '80% interval', type: 'line', data: pad(t.next.map(function (r) { return r[3] - r[2]; })), stack: 'b', symbol: 'none', lineStyle: { opacity: 0 }, areaStyle: { color: col, opacity: 0.2 }, itemStyle: { color: col, opacity: 0.4 }, tooltip: { show: false } },
+      { name: 'Actual', type: 'line', data: ha, symbol: 'circle', symbolSize: 4, lineStyle: { width: 2, color: C.text }, itemStyle: { color: C.text } },
+      { name: 'Same month last year', type: 'line', data: lyAll, symbol: 'none', lineStyle: { width: 1.5, color: C.muted, type: 'dotted' }, itemStyle: { color: C.muted } },
+      { name: 'Forecast', type: 'line', data: new Array(nH - 1).fill(null).concat([ha[nH - 1]], t.next.map(function (r) { return r[1]; })), symbol: 'circle', symbolSize: 4, lineStyle: { width: 2, color: col, type: 'dashed' }, itemStyle: { color: col } }
+    ];
+    chart('c-trk').setOption(opt, true);
+  }
+  function renderOperational() {
+    marketSeg('seg-trk', trk, renderTrack);
+    renderTrack();
+    var P = D.price_volume, k = P.months.length, s0 = Math.max(0, k - 60);
+    var opt = base();
+    opt.tooltip.valueFormatter = function (v) { return v == null ? '–' : (v > 0 ? '+' : '') + v.toFixed(1) + '%'; };
+    opt.xAxis = xMonths(P.months.slice(s0));
+    opt.yAxis = { type: 'value', axisLabel: { color: C.muted, formatter: '{value}%' }, splitLine: { lineStyle: { color: C.grid } } };
+    opt.series = [
+      { name: 'Value (EUR)', type: 'line', data: P.value_yoy.slice(s0), symbol: 'none', lineStyle: { width: 2, color: C.text }, itemStyle: { color: C.text } },
+      { name: 'Volume (kg)', type: 'line', data: P.qty_yoy.slice(s0), symbol: 'none', lineStyle: { width: 1.6, color: C.eu }, itemStyle: { color: C.eu } },
+      { name: 'Unit value (EUR/kg)', type: 'line', data: P.uv_yoy.slice(s0), symbol: 'none', lineStyle: { width: 1.6, color: C.green }, itemStyle: { color: C.green } }
+    ];
+    chart('c-pvm').setOption(opt);
+    var A = P.annual, o2 = base();
+    o2.tooltip.valueFormatter = function (v) { return v == null ? '–' : (v > 0 ? '+' : '') + v.toFixed(1); };
+    o2.xAxis = { type: 'category', data: A.map(function (r) { return r[0].replace(' Jan-Aug', '\nJan-Aug'); }), axisLabel: { color: C.muted, fontSize: 11 } };
+    o2.yAxis = { type: 'value', axisLabel: { color: C.muted }, splitLine: { lineStyle: { color: C.grid } } };
+    o2.series = [
+      { name: 'Price (pp)', type: 'bar', stack: 'pv', data: A.map(function (r) { return r[2]; }), itemStyle: { color: C.green } },
+      { name: 'Volume (pp)', type: 'bar', stack: 'pv', data: A.map(function (r) { return r[3]; }), itemStyle: { color: C.eu } },
+      { name: 'Value change (%)', type: 'line', data: A.map(function (r) { return r[1]; }), symbol: 'circle', symbolSize: 5, lineStyle: { width: 0 }, itemStyle: { color: C.text } }
+    ];
+    chart('c-pva').setOption(o2);
+    var y23 = A.filter(function (r) { return r[0] === '2023'; })[0], ytd = A[A.length - 1];
+    document.getElementById('pv-note').textContent = 'Log split, so price and volume add up to about the value change. In 2023 value fell ' + Math.abs(y23[1]).toFixed(1) + '%, ' +
+      Math.abs(y23[3]).toFixed(1) + ' pp of it from volume. In ' + ytd[0] + ' value is down ' + Math.abs(ytd[1]).toFixed(1) + '%, ' + Math.abs(ytd[2]).toFixed(1) + ' pp of it from price (provisional months).';
+    fillStatus();
+  }
+  function fillStatus() {
+    var st = D.status;
+    if (st) {
+      document.getElementById('st-hint').textContent = 'Last run ' + st.last_run_utc.slice(0, 16).replace('T', ' ') + ' UTC · checks ' + (st.checks_passed ? 'passed' : 'failed') + ' · latest month US ' + monthName(st.latest_month_us) + ', EU ' + monthName(st.latest_month_eu);
+      document.querySelector('#t-status tbody').innerHTML = st.steps.map(function (r) { return '<tr><td>' + esc(r.step) + '</td><td>' + esc(r.path) + '</td><td>' + esc(r.status) + (r.seconds != null ? ' (' + r.seconds + ' s)' : '') + '</td></tr>'; }).join('');
+    }
+  }
+
+  var RENDER = { overview: renderOverview, strategic: renderStrategic, tactical: renderTactical, operational: renderOperational };
+  var ALIAS = { products: 'strategic', forecast: 'tactical', scenarios: 'tactical', tracking: 'operational' };
+  function tabFor(h) { return document.getElementById('tab-' + (ALIAS[h] || h)); }
 
   // ---------- load ----------
-  Promise.all(['overview', 'products', 'forecast', 'scenarios'].map(function (n) {
+  fetch('data/refresh_status.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (st) {
+    if (!st) return;
+    D.status = st; if (rendered.operational) fillStatus();
+    var t = '<strong>Data status:</strong> refreshed ' + st.last_run_utc.slice(0, 10) + ' · latest month US ' +
+      st.latest_month_us + ', EU ' + st.latest_month_eu;
+    if (st.sources_stale && st.sources_stale.length) t += ' · some sources unavailable, cached data used';
+    document.getElementById('data-status').innerHTML = t;
+  }).catch(function () {});
+
+  Promise.all(['overview', 'products', 'forecast', 'scenarios', 'competitors', 'price_volume', 'tracking'].map(function (n) {
     return fetch('data/' + n + '.json').then(function (r) { if (!r.ok) throw new Error(n + ': ' + r.status); return r.json(); }).then(function (j) { D[n] = j; });
   })).then(function () {
     document.getElementById('loading').remove();
     document.getElementById('gen').textContent = 'Data built ' + D.overview.generated;
-    var h = location.hash.slice(1), t = document.getElementById('tab-' + h);
+    var h = location.hash.slice(1), t = tabFor(h);
     show(t || tabs[0]);
   }).catch(function (err) {
     document.getElementById('loading').textContent = 'Could not load data (' + err.message + ').';

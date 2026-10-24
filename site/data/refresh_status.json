@@ -1,0 +1,83 @@
+{
+ "last_run_utc": "2026-10-24T14:22:10Z",
+ "latest_month_us": "2026-07",
+ "latest_month_eu": "2026-08",
+ "rows": 7210,
+ "checks_passed": true,
+ "sources_stale": [],
+ "steps": [
+  {
+   "step": "download US monthly (Comtrade)",
+   "path": "src/download_us_comtrade.py",
+   "status": "skipped (--skip-download)"
+  },
+  {
+   "step": "download annual mirror + EU monthly",
+   "path": "src/download_comtrade.py",
+   "status": "skipped (--skip-download)"
+  },
+  {
+   "step": "download EU quantities",
+   "path": "src/download_eu_quantity.py",
+   "status": "skipped (--skip-download)"
+  },
+  {
+   "step": "download competitors",
+   "path": "src/download_competitors.py",
+   "status": "skipped (--skip-download)"
+  },
+  {
+   "step": "refresh FX/CPI cache",
+   "path": "data/raw/fx",
+   "status": "skipped (--skip-download)"
+  },
+  {
+   "step": "clean",
+   "path": "src/clean.py",
+   "seconds": 42,
+   "status": "ok"
+  },
+  {
+   "step": "notebook 01 explore",
+   "path": "notebooks/01_explore.ipynb",
+   "seconds": 11,
+   "status": "ok"
+  },
+  {
+   "step": "notebook 02 forecast",
+   "path": "notebooks/02_forecast.ipynb",
+   "seconds": 465,
+   "status": "ok"
+  },
+  {
+   "step": "notebook 03 scenarios",
+   "path": "notebooks/03_scenarios.ipynb",
+   "seconds": 4,
+   "status": "ok"
+  },
+  {
+   "step": "notebook 04 competitors",
+   "path": "notebooks/04_competitors.ipynb",
+   "seconds": 6,
+   "status": "ok"
+  },
+  {
+   "step": "notebook 05 price/volume",
+   "path": "notebooks/05_price_volume.ipynb",
+   "seconds": 5,
+   "status": "ok"
+  },
+  {
+   "step": "validate model",
+   "path": "scripts/validate_model.py",
+   "seconds": 1,
+   "status": "ok"
+  },
+  {
+   "step": "build site data",
+   "path": "scripts/build_site_data.py",
+   "seconds": 1,
+   "status": "ok"
+  }
+ ]
+}

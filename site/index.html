@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bangladesh Garment Exports</title>
-  <meta name="description" content="US and EU imports of Bangladeshi apparel since 2010, 12-month forecasts with backtests, and revenue-at-risk scenarios.">
+  <meta name="description" content="US and EU imports of Bangladeshi apparel since 2010, set out by decision level: market share against competitors, 12-month forecasts and scenarios, and monthly tracking.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
@@ -18,16 +18,16 @@
         <span class="brand-mark" aria-hidden="true"></span>
         <div>
           <h1>Bangladesh Garment Exports to the US and EU</h1>
-          <p class="sub">Trends, 12-month forecasts and revenue at risk · HS 61 + 62</p>
+          <p class="sub">Market share, forecasts and revenue at risk · HS 61 + 62</p>
         </div>
       </div>
       <a class="btn ghost small" href="https://github.com/takyurp09/rmg-export-forecasting">Code on GitHub</a>
     </div>
     <nav class="tabs" role="tablist" aria-label="Dashboard pages">
       <button role="tab" id="tab-overview" aria-controls="page-overview" aria-selected="true">Overview</button>
-      <button role="tab" id="tab-products" aria-controls="page-products" aria-selected="false" tabindex="-1">Products &amp; markets</button>
-      <button role="tab" id="tab-forecast" aria-controls="page-forecast" aria-selected="false" tabindex="-1">Forecast</button>
-      <button role="tab" id="tab-scenarios" aria-controls="page-scenarios" aria-selected="false" tabindex="-1">Scenarios</button>
+      <button role="tab" id="tab-strategic" aria-controls="page-strategic" aria-selected="false" tabindex="-1">Strategic</button>
+      <button role="tab" id="tab-tactical" aria-controls="page-tactical" aria-selected="false" tabindex="-1">Tactical</button>
+      <button role="tab" id="tab-operational" aria-controls="page-operational" aria-selected="false" tabindex="-1">Operational</button>
     </nav>
     <div class="banner" role="note">Importer-reported (CIF) values in nominal US dollars. They run above Bangladesh's own FOB export figures.</div>
   </header>
@@ -36,7 +36,8 @@
     <div id="loading" class="loading" role="status">Loading data…</div>
 
     <section class="page" id="page-overview" role="tabpanel" aria-labelledby="tab-overview">
-      <div class="kpis" id="kpis"></div>
+      <p class="who"><strong>Who uses this:</strong> anyone new to the data, for a quick read of where Bangladesh stands before going to the other pages.</p>
+      <div class="kpis eight" id="kpis"></div>
       <article class="card">
         <header class="card-h"><h2>Monthly imports from Bangladesh</h2><span class="hint">US and EU27, $bn per month</span></header>
         <div class="chart tall" id="c-monthly" role="img" aria-label="Line chart of monthly US and EU imports of apparel from Bangladesh since 2010, with Rana Plaza, COVID-19 and the 2024 unrest marked."></div>
@@ -44,13 +45,30 @@
       </article>
     </section>
 
-    <section class="page" id="page-products" role="tabpanel" aria-labelledby="tab-products" hidden>
+    <section class="page" id="page-strategic" role="tabpanel" aria-labelledby="tab-strategic" hidden>
+      <p class="who"><strong>Who uses this:</strong> the ministry or BGMEA policy desk and exporters' boards, to decide which markets and products to defend or grow over the next 3 to 5 years.</p>
       <div class="filters">
         <div class="filter">
-          <label for="f-market">Market</label>
-          <select id="f-market"><option value="US">United States (12 product groups)</option><option value="EU">EU27 (knit and woven)</option></select>
+          <span class="ctrl-l" id="l-mkt">Market</span>
+          <div class="seg" role="radiogroup" aria-labelledby="l-mkt" id="seg-mkt"></div>
         </div>
       </div>
+      <div class="grid g-1-1">
+        <article class="card">
+          <header class="card-h"><h2>Share of apparel imports by supplier</h2><span class="hint" id="sh-hint">% of the market's HS 61+62 imports, full years</span></header>
+          <div class="chart tall" id="c-share" role="img" aria-label="Line chart of each supplier's share of US or EU apparel imports by year."></div>
+          <p class="hint small-note">China+1: as buyers moved orders out of China, the share went to Vietnam and Bangladesh in the US, and back to China in the EU after 2022.</p>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Ranking, 2025</h2><span class="hint">$bn and % share</span></header>
+          <div class="chart tall" id="c-rank" role="img" aria-label="Bar chart of the nine largest apparel suppliers to the selected market in 2025."></div>
+        </article>
+      </div>
+      <article class="card">
+        <header class="card-h"><h2>Why imports changed, 2022 to 2025</h2><span class="hint" id="ss-hint">$bn, shift-share split</span></header>
+        <div class="chart" id="c-shift" role="img" aria-label="Stacked bar chart splitting each supplier's 2022-2025 change into a market-size effect and a share effect."></div>
+        <p class="hint small-note">Market-size effect: what the change would have been at the 2022 share. Share effect: the gain or loss from a higher or lower share of the 2025 market.</p>
+      </article>
       <div class="grid g-1-1">
         <article class="card">
           <header class="card-h"><h2>Annual imports by product group</h2><span class="hint">$bn, full calendar years</span></header>
@@ -73,7 +91,8 @@
       </div>
     </section>
 
-    <section class="page" id="page-forecast" role="tabpanel" aria-labelledby="tab-forecast" hidden>
+    <section class="page" id="page-tactical" role="tabpanel" aria-labelledby="tab-tactical" hidden>
+      <p class="who"><strong>Who uses this:</strong> exporter planning teams and BGMEA analysts, to set next year's capacity, order and cash-flow plans and to size the risk from a demand fall or an EU duty.</p>
       <div class="filters">
         <div class="filter grow">
           <label for="f-series">Series</label>
@@ -96,9 +115,7 @@
         </div>
         <p class="hint small-note">Relative MASE below 1 means the model beat the seasonal naive forecast. Rule: keep models within 1 point of the lowest 12-month total error, then pick the lowest MASE. The highlighted row is the model in use.</p>
       </article>
-    </section>
-
-    <section class="page" id="page-scenarios" role="tabpanel" aria-labelledby="tab-scenarios" hidden>
+      <h2 class="section-h">Scenarios</h2>
       <div class="grid g-1-1">
         <article class="card">
           <header class="card-h"><h2>S1: US demand falls</h2><span class="hint" id="s1-window"></span></header>
@@ -115,11 +132,11 @@
         </article>
         <article class="card">
           <header class="card-h"><h2>S2: EU duty after EBA ends</h2><span class="hint" id="s2-window"></span></header>
-          <p class="note">Illustrative only. Duty-free EU access (EBA) runs for 3 years after LDC graduation, so a duty cannot apply before about Nov 2029.</p>
+          <p class="note">Duty-free EU access (EBA) runs for 3 years after LDC graduation, so a duty cannot apply before about Nov 2029. Without GSP+, 12% is the likely rate: standard GSP for apparel is suspended for a country above a 14.5% share, which Bangladesh would pass. The 9.6% standard-GSP rate is unlikely.</p>
           <div class="ctrl">
             <label for="s-eu">EU duty rate <output id="o-eu"></output></label>
             <input type="range" id="s-eu" min="0" max="12" step="0.1" value="12">
-            <div class="ticks"><button type="button" data-duty="9.6">9.6% standard GSP</button><button type="button" data-duty="12">12% MFN</button></div>
+            <div class="ticks"><button type="button" data-duty="12">12% MFN (likely)</button><button type="button" data-duty="9.6">9.6% standard GSP (unlikely)</button></div>
           </div>
           <div class="ctrl">
             <span class="ctrl-l" id="l-e2">Tariff elasticity</span>
@@ -151,10 +168,71 @@
         </div>
       </article>
     </section>
+
+    <section class="page" id="page-operational" role="tabpanel" aria-labelledby="tab-operational" hidden>
+      <p class="who"><strong>Who uses this:</strong> the analyst who updates the data each month, to see whether the newest months are on track and whether a fall comes from prices or from volumes.</p>
+      <div class="filters">
+        <div class="filter">
+          <span class="ctrl-l" id="l-trk">Market</span>
+          <div class="seg" role="radiogroup" aria-labelledby="l-trk" id="seg-trk"></div>
+        </div>
+      </div>
+      <div class="grid g-1-1">
+        <article class="card">
+          <header class="card-h"><h2>Latest 6 months vs same month last year</h2><span class="hint">$bn, actuals</span></header>
+          <div class="table-wrap">
+            <table class="tbl" id="t-last">
+              <caption class="sr-only">Latest six months of imports against the same month a year earlier</caption>
+              <thead><tr><th scope="col">Month</th><th scope="col" class="num">Actual</th><th scope="col" class="num">Last year</th><th scope="col" class="num">Change</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Next 6 months: forecast to check against</h2><span class="hint" id="trk-model">$bn</span></header>
+          <div class="table-wrap">
+            <table class="tbl" id="t-next">
+              <caption class="sr-only">Forecast for the next six months with the 80 percent range and the same month a year earlier</caption>
+              <thead><tr><th scope="col">Month</th><th scope="col" class="num">Forecast</th><th scope="col" class="num">80% range</th><th scope="col" class="num">Last year</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="hint small-note">When a new month arrives, an actual outside the 80% range is a signal to look closer; about 1 month in 5 falls outside by chance.</p>
+        </article>
+      </div>
+      <article class="card">
+        <header class="card-h"><h2>Actual, forecast and last year</h2><span class="hint">$bn per month, last 18 months and next 6</span></header>
+        <div class="chart" id="c-trk" role="img" aria-label="Line chart of the latest monthly imports, the same months a year earlier, and the next six forecast months with an 80 percent band."></div>
+      </article>
+      <h2 class="section-h">EU price and volume</h2>
+      <div class="grid g-1-1">
+        <article class="card">
+          <header class="card-h"><h2>Monthly change on a year earlier</h2><span class="hint">EU27, HS 61+62, value and kg in euros</span></header>
+          <div class="chart tall" id="c-pvm" role="img" aria-label="Line chart of monthly year-on-year change in EU import value, volume in kilograms and unit value."></div>
+        </article>
+        <article class="card">
+          <header class="card-h"><h2>Annual change split into price and volume</h2><span class="hint">Percentage points of the value change, EUR</span></header>
+          <div class="chart tall" id="c-pva" role="img" aria-label="Stacked bar chart splitting each year's change in EU import value into a price part and a volume part."></div>
+          <p class="hint small-note" id="pv-note"></p>
+        </article>
+      </div>
+      <article class="card">
+        <header class="card-h"><h2>Data status</h2><span class="hint" id="st-hint">From the last pipeline run</span></header>
+        <div class="table-wrap">
+          <table class="tbl" id="t-status">
+            <caption class="sr-only">Pipeline steps and their status at the last run</caption>
+            <thead><tr><th scope="col">Step</th><th scope="col">File</th><th scope="col">Status</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="hint small-note">The pipeline is described in docs/PIPELINE.md.</p>
+      </article>
+    </section>
   </main>
 
   <footer class="site-footer">
-    <p><strong>Data:</strong> UN Comtrade (US imports, monthly; all reporters, annual), Eurostat Comext DS-045409 (EU27 imports, converted with ECB monthly rates), downloaded 21 Oct 2026. Importer-reported CIF, nominal USD.</p>
+    <p><strong>Data:</strong> UN Comtrade (US imports by supplier, monthly; all reporters, annual), Eurostat Comext DS-045409 (EU27 imports by supplier, values and kg, converted with ECB monthly rates), downloaded 21–24 Oct 2026. Importer-reported CIF, nominal USD.</p>
+    <p id="data-status"></p>
     <p>Muhammad Taky Tahmid · MIT License · <a href="https://github.com/takyurp09/rmg-export-forecasting">github.com/takyurp09/rmg-export-forecasting</a> · <span id="gen"></span></p>
   </footer>
 

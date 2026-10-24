@@ -1,0 +1,11 @@
+country_key,partner,iso3,country,is_bangladesh
+1,BD,BGD,Bangladesh,True
+2,CN,CHN,China,False
+3,VN,VNM,Vietnam,False
+4,IN,IND,India,False
+5,KH,KHM,Cambodia,False
+6,PK,PAK,Pakistan,False
+7,TR,TUR,Türkiye,False
+8,ID,IDN,Indonesia,False
+9,LK,LKA,Sri Lanka,False
+10,WORLD,WLD,All suppliers,False

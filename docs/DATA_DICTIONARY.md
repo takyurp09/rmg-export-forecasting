@@ -1,6 +1,6 @@
 # Data dictionary
 
-Every column in the six model tables. Power BI types are the ones set in `powerquery/*.pq`. Source files are in `data/processed/powerbi/`.
+Every column in the nine model tables. Power BI types are the ones set in `powerquery/*.pq`. Source files are in `data/processed/powerbi/`.
 
 ## dim_date
 
@@ -96,3 +96,48 @@ Scenarios in the file:
 | 7 | S2b EU 9.6% standard-GSP duty (post-2029) [mid] | EU |
 | 8 | S3 Stress test S1 + S2 mid (not a dated forecast) | US, EU |
 | 9 | S4 Repeat Jul-Aug 2024 disruption | US, EU |
+
+## dim_country
+
+10 rows: Bangladesh, eight competing suppliers, and a WORLD row for the market total.
+
+| Column | Power BI type | Description | Example |
+|---|---|---|---|
+| `country_key` | Whole number | Key. 1 = Bangladesh, 10 = WORLD | `2` |
+| `partner` | Text | Two-letter code used in the source files | `CN` |
+| `iso3` | Text | ISO 3166 alpha-3 code | `CHN` |
+| `country` | Text | Name for legends | `China` |
+| `is_bangladesh` | True/false | True for Bangladesh only | `False` |
+
+## fact_competitors
+
+Monthly US and EU27 imports of apparel (HS 61+62) from Bangladesh and eight competitors, Jan 2010 to Jul 2026 (US) and Aug 2026 (EU). The EU total counts extra-EU imports only. Sources are in `data/raw/SOURCES_competitors.md`.
+
+| Column | Power BI type | Description | Example |
+|---|---|---|---|
+| `date` | Date | First day of the month. Joins `dim_date[date]` | `2025-01-01` |
+| `market` | Text | `US` or `EU`. Joins `dim_market[market]` | `US` |
+| `country_key` | Whole number | FK to `dim_country` | `1` |
+| `partner` | Text | Same code as `dim_country[partner]` | `BD` |
+| `value_usd` | Decimal number | Imports from that supplier, nominal USD | |
+| `market_total_usd` | Decimal number | Imports from all suppliers that month | |
+| `share_pct` | Decimal number | `value_usd / market_total_usd * 100`, a percentage | `10.04` |
+
+## fact_price_volume
+
+Monthly EU27 imports from Bangladesh with value and weight, Jan 2010 to Aug 2026. Source: Eurostat Comext DS-045409, euros converted with ECB monthly rates. See `data/raw/SOURCES_eu_quantity.md`.
+
+| Column | Power BI type | Description | Example |
+|---|---|---|---|
+| `date_key` | Whole number | FK to `dim_date` | `20260801` |
+| `market_key` | Whole number | FK to `dim_market`. Always 2 (EU) | `2` |
+| `product_key` | Whole number | FK to `dim_product`. 2 for HS 61, 12 for HS 62, 15 for 61+62, blank for HS4 rows | `2` |
+| `hs_code` | Text | `61`, `62`, `61+62`, or an HS4 heading such as `6109`. Keep as text | `61` |
+| `value_usd` | Decimal number | Import value in USD | |
+| `value_eur` | Decimal number | Import value in euros, as Eurostat reports it | |
+| `qty_kg` | Decimal number | Net weight, kilograms | |
+| `unit_value_usd_per_kg` | Decimal number | `value_usd / qty_kg` | |
+| `unit_value_eur_per_kg` | Decimal number | `value_eur / qty_kg` | |
+| `source` | Text | Source note | |
+
+Rows overlap across `hs_code` values. For a total, sum `61` and `62` only.

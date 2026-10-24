@@ -16,18 +16,30 @@ SCHEMA: dict[str, list[str]] = {
                       "lo80", "hi80", "lo95", "hi95"],
     "fact_scenarios": ["scenario_key", "scenario", "market_key", "product_key", "window",
                        "baseline_usd", "scenario_usd", "change_usd", "change_pct"],
+    "dim_country": ["country_key", "partner", "iso3", "country", "is_bangladesh"],
+    "fact_competitors": ["date", "market", "country_key", "partner", "value_usd", "market_total_usd", "share_pct"],
+    "fact_price_volume": ["date_key", "market_key", "product_key", "hs_code", "value_usd", "value_eur", "qty_kg",
+                          "unit_value_usd_per_kg", "unit_value_eur_per_kg", "source"],
 }
+# columns allowed to be blank: HS4 rows in fact_price_volume have no product_key
+BLANK_OK = {("fact_price_volume", "product_key")}
 KEYS = {"dim_date": ["date_key"], "dim_market": ["market_key"], "dim_product": ["product_key"],
         "fact_exports": ["date_key", "market_key", "product_key"],
         "fact_forecast": ["date_key", "market_key", "product_key", "level"],
-        "fact_scenarios": ["scenario_key", "market_key", "product_key"]}
+        "fact_scenarios": ["scenario_key", "market_key", "product_key"],
+        "dim_country": ["country_key"], "fact_competitors": ["date", "market", "country_key"],
+        "fact_price_volume": ["date_key", "market_key", "hs_code"]}
 INTS = {"dim_date": ["date_key", "year", "quarter", "month", "bd_fiscal_year"], "dim_market": ["market_key"],
         "dim_product": ["product_key", "is_total"], "fact_exports": ["date_key", "market_key", "product_key"],
         "fact_forecast": ["date_key", "market_key", "product_key"],
-        "fact_scenarios": ["scenario_key", "market_key", "product_key"]}
+        "fact_scenarios": ["scenario_key", "market_key", "product_key"],
+        "dim_country": ["country_key"], "fact_competitors": ["country_key"],
+        "fact_price_volume": ["date_key", "market_key"]}
 NUMS = {"fact_exports": ["value_usd", "value_usd_real2025"],
         "fact_forecast": ["point", "lo80", "hi80", "lo95", "hi95"],
-        "fact_scenarios": ["baseline_usd", "scenario_usd", "change_usd", "change_pct"]}
+        "fact_scenarios": ["baseline_usd", "scenario_usd", "change_usd", "change_pct"],
+        "fact_competitors": ["value_usd", "market_total_usd", "share_pct"],
+        "fact_price_volume": ["value_usd", "value_eur", "qty_kg", "unit_value_usd_per_kg", "unit_value_eur_per_kg"]}
 US_KEYS = {1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14}
 EU_KEYS = {2, 12}
 errors: list[str] = []
@@ -44,7 +56,8 @@ def main() -> int:
     for n, cols in SCHEMA.items():
         check(list(t[n].columns) == cols, f"{n}: columns {list(t[n].columns)} != {cols}")
         for c in cols:
-            check((t[n][c] != "").all(), f"{n}.{c}: blank values")
+            if (n, c) not in BLANK_OK:
+                check((t[n][c] != "").all(), f"{n}.{c}: blank values")
     # types
     for n, cols in INTS.items():
         for c in cols:
@@ -115,6 +128,35 @@ def main() -> int:
     check(((sc.change_usd / sc.baseline_usd) - sc.change_pct).abs().max() < 1e-9, "fact_scenarios: change_pct != change/baseline")
     check(sc.groupby("scenario_key")["scenario"].nunique().eq(1).all(), "fact_scenarios: one name per scenario_key")
     check(sc["window"].str.fullmatch(r"\d{4}-\d{2} to \d{4}-\d{2}").all(), "fact_scenarios: window format")
+    # competitors
+    dc, cp = i["dim_country"], i["fact_competitors"]
+    check(dc.loc[dc.is_bangladesh == "True", "partner"].tolist() == ["BD"], "dim_country: only BD is_bangladesh")
+    check(dc["is_bangladesh"].isin(["True", "False"]).all(), "dim_country: is_bangladesh True/False")
+    check(not (set(cp.country_key) - set(dc.country_key)), "fact_competitors: orphan country_key")
+    check(cp["market"].isin(["US", "EU"]).all(), "fact_competitors: market must be US or EU")
+    cd = pd.to_datetime(cp["date"], format="%Y-%m-%d", errors="coerce")
+    check(cd.notna().all() and (cd.dt.strftime("%Y%m%d").astype(int).isin(d["date_key"])).all(), "fact_competitors: date outside dim_date")
+    check((cp.merge(dc[["country_key", "partner"]], on="country_key", suffixes=("", "_d")).eval("partner == partner_d")).all(),
+          "fact_competitors: partner does not match dim_country")
+    w = cp[cp.partner == "WORLD"]
+    check(((w.value_usd - w.market_total_usd).abs() < 1).all(), "fact_competitors: WORLD value != market total")
+    check(((cp.value_usd / cp.market_total_usd * 100 - cp.share_pct).abs() < 0.01).all(), "fact_competitors: share_pct != value/total")
+    sup = cp[cp.partner != "WORLD"].groupby(["date", "market"]).value_usd.sum()
+    tot = cp.groupby(["date", "market"]).market_total_usd.first()
+    check((sup <= tot.reindex(sup.index) + 1).all(), "fact_competitors: suppliers sum above market total")
+    # price/volume
+    pv = i["fact_price_volume"]
+    check((pv.market_key == 2).all(), "fact_price_volume: EU only (market_key 2)")
+    check(not (set(pv.date_key) - set(d.date_key)), "fact_price_volume: date_key outside dim_date")
+    pk = pv[pv.product_key != ""]
+    check(not (set(pk.product_key.astype(int)) - set(p.product_key)), "fact_price_volume: orphan product_key")
+    check(pk.groupby("hs_code").product_key.first().to_dict() == {"61": "2", "61+62": "15", "62": "12"},
+          "fact_price_volume: chapter rows must map to keys 2, 12, 15")
+    check(((pv.qty_kg > 0) & (pv.value_eur > 0)).all(), "fact_price_volume: value and kg must be > 0")
+    check(((pv.value_eur / pv.qty_kg - pv.unit_value_eur_per_kg).abs() < 1e-6).all(), "fact_price_volume: unit value != value/kg")
+    ch = pv[pv.hs_code.isin(["61", "62"])].groupby("date_key")[["value_eur", "qty_kg"]].sum()
+    tt = pv[pv.hs_code == "61+62"].set_index("date_key")[["value_eur", "qty_kg"]]
+    check(((ch - tt.reindex(ch.index)).abs().max() < 1).all(), "fact_price_volume: 61 + 62 != 61+62 row")
     return report(t, i)
 
 
@@ -137,6 +179,12 @@ def report(t: dict, i: dict | None = None) -> int:
             r = sc[(sc.scenario_key == k) & (sc.market_key == m)]
             print(f"Scenario {r.scenario.iloc[0]}: change ${r.change_usd.sum()/1e9:+.2f}bn "
                   f"({r.change_usd.sum()/r.baseline_usd.sum()*100:+.1f}%)")
+        cp = i["fact_competitors"]
+        cp = cp.assign(year=cp.date.str[:4])
+        for m in ("US", "EU"):
+            y = cp[(cp.market == m) & (cp.year == "2025")]
+            sh = y[y.partner != "WORLD"].groupby("partner").value_usd.sum() / y[y.partner == "WORLD"].value_usd.sum() * 100
+            print(f"{m} 2025: Bangladesh share {sh['BD']:.1f}%, rank {int(sh.rank(ascending=False)['BD'])}")
     if errors:
         print("\nVALIDATION FAILED:")
         for e in errors:

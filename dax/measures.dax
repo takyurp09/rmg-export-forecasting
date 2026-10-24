@@ -1,7 +1,7 @@
 // =====================================================================
 // Bangladesh RMG exports to the US and EU - DAX measure library
 // ---------------------------------------------------------------------
-// Model         : docs/SCHEMA.md (star schema, six tables)
+// Model         : docs/SCHEMA.md (star schema, nine tables)
 // Host table    : an empty table "_Measures" (Home > Enter data, one
 //                 dummy column, then hide it). All measures go there.
 // Format        : Tabular Editor style. Each measure is written as
@@ -13,6 +13,8 @@
 //                 "MEASURE '_Measures'" prefix.
 // Relationships : all many-to-one, single direction, dimension filters
 //                 fact. fact_scenarios has no date relationship.
+//                 fact_competitors joins dim_date on date and
+//                 dim_market on market (text).
 // Units         : value columns are nominal USD (CIF, importer
 //                 reported). "bn" measures divide by 1e9.
 // =====================================================================
@@ -409,6 +411,97 @@ DEFINE
     MEASURE '_Measures'[Data Note] =
         "Importer-reported (CIF), nominal USD. Sources: UN Comtrade (US), Eurostat Comext (EU)."
         // displayFolder = "6 Labels"
+
+// ---------------------------------------------------------------------
+// Display folder: 7 Competitors (fact_competitors, dim_country)
+// Strategic page. share_pct in the CSV is per month; these measures
+// rebuild shares from values so they work for any period.
+// ---------------------------------------------------------------------
+
+    // Imports from the supplier(s) in filter context. WORLD rows excluded.
+    MEASURE '_Measures'[Supplier Imports] =
+        CALCULATE ( SUM ( fact_competitors[value_usd] ), dim_country[partner] <> "WORLD" )
+        // displayFolder = "7 Competitors"; formatString = "$#,0"
+
+    // All suppliers to the market in the period (the WORLD row).
+    MEASURE '_Measures'[Market Imports (all suppliers)] =
+        CALCULATE ( SUM ( fact_competitors[value_usd] ), REMOVEFILTERS ( dim_country ), dim_country[partner] = "WORLD" )
+        // displayFolder = "7 Competitors"; formatString = "$#,0"
+
+    // Share of market by supplier country. Use with dim_market[market]
+    // and dim_date[year] on the axis; check: Bangladesh, US, 2025 = 10.0%.
+    MEASURE '_Measures'[Share of Market (supplier)] =
+        DIVIDE ( [Supplier Imports], [Market Imports (all suppliers)] )
+        // displayFolder = "7 Competitors"; formatString = "0.0%"
+
+    // Rank among the nine suppliers in the market for the period (1 = largest).
+    // Check: 2025, US: Bangladesh 3; EU: Bangladesh 2.
+    MEASURE '_Measures'[Supplier Rank] =
+        IF (
+            HASONEVALUE ( dim_country[country_key] ) && SELECTEDVALUE ( dim_country[partner] ) <> "WORLD",
+            RANKX (
+                FILTER ( ALL ( dim_country ), dim_country[partner] <> "WORLD" ),
+                [Supplier Imports], , DESC, Dense
+            )
+        )
+        // displayFolder = "7 Competitors"; formatString = "0"
+
+    MEASURE '_Measures'[Bangladesh Share of Market] =
+        CALCULATE ( [Share of Market (supplier)], dim_country[is_bangladesh] = TRUE () )
+        // displayFolder = "7 Competitors"; formatString = "0.0%"
+
+    // Share change in percentage points against the same period a year earlier.
+    MEASURE '_Measures'[Share Change pp (YoY)] =
+        VAR cur = [Share of Market (supplier)]
+        VAR prev = CALCULATE ( [Share of Market (supplier)], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+        RETURN IF ( NOT ISBLANK ( prev ), ( cur - prev ) * 100 )
+        // displayFolder = "7 Competitors"; formatString = "+0.0;-0.0"
+
+// ---------------------------------------------------------------------
+// Display folder: 8 Price and volume (fact_price_volume, EU only)
+// Rows overlap (61, 62, 61+62 and HS4 headings), so every measure sums
+// the two chapter rows only.
+// ---------------------------------------------------------------------
+
+    MEASURE '_Measures'[EU Value EUR] =
+        CALCULATE ( SUM ( fact_price_volume[value_eur] ), fact_price_volume[hs_code] IN { "61", "62" } )
+        // displayFolder = "8 Price and volume"; formatString = "#,0"
+
+    MEASURE '_Measures'[EU Volume kg] =
+        CALCULATE ( SUM ( fact_price_volume[qty_kg] ), fact_price_volume[hs_code] IN { "61", "62" } )
+        // displayFolder = "8 Price and volume"; formatString = "#,0"
+
+    // Unit value: euros per kilogram. Check: 2023 = 15.62, 2025 = 14.29.
+    MEASURE '_Measures'[Unit Value EUR per kg] =
+        DIVIDE ( [EU Value EUR], [EU Volume kg] )
+        // displayFolder = "8 Price and volume"; formatString = "0.00"
+
+    MEASURE '_Measures'[Value Change % (YoY)] =
+        VAR prev = CALCULATE ( [EU Value EUR], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+        RETURN DIVIDE ( [EU Value EUR] - prev, prev )
+        // displayFolder = "8 Price and volume"; formatString = "+0.0%;-0.0%"
+
+    // Price and volume effects in percentage points of the value change.
+    // Log split, as in notebook 05: dlnV = dlnP + dlnQ, and each part's
+    // share of dlnV is applied to the % value change.
+    // Check: 2023 vs 2022 = -4.5 pp price, -15.9 pp volume (value -20.4%).
+    MEASURE '_Measures'[Price Effect pp] =
+        VAR v1 = [EU Value EUR]
+        VAR v0 = CALCULATE ( [EU Value EUR], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+        VAR p1 = [Unit Value EUR per kg]
+        VAR p0 = CALCULATE ( [Unit Value EUR per kg], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+        VAR dlnV = LN ( DIVIDE ( v1, v0 ) )
+        RETURN IF ( v0 > 0 && dlnV <> 0, LN ( DIVIDE ( p1, p0 ) ) / dlnV * ( v1 / v0 - 1 ) * 100 )
+        // displayFolder = "8 Price and volume"; formatString = "+0.0;-0.0"
+
+    MEASURE '_Measures'[Volume Effect pp] =
+        VAR v1 = [EU Value EUR]
+        VAR v0 = CALCULATE ( [EU Value EUR], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+        VAR q1 = [EU Volume kg]
+        VAR q0 = CALCULATE ( [EU Volume kg], SAMEPERIODLASTYEAR ( dim_date[date] ) )
+        VAR dlnV = LN ( DIVIDE ( v1, v0 ) )
+        RETURN IF ( v0 > 0 && dlnV <> 0, LN ( DIVIDE ( q1, q0 ) ) / dlnV * ( v1 / v0 - 1 ) * 100 )
+        // displayFolder = "8 Price and volume"; formatString = "+0.0;-0.0"
 
 EVALUATE
     { [Total Imports] }

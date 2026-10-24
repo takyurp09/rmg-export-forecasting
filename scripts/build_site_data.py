@@ -1,7 +1,7 @@
 """Turn the Power BI tables and output tables into compact JSON for the web dashboard.
 
 Usage: python scripts/build_site_data.py
-Writes site/data/{overview,products,forecast,scenarios}.json. Uses only the CSVs in
+Writes site/data/{overview,products,forecast,scenarios,competitors,price_volume,tracking}.json. Uses only the CSVs in
 data/processed/powerbi/ and outputs/tables/, so the page shows the same numbers as the README.
 """
 from __future__ import annotations
@@ -67,9 +67,21 @@ def main():
                       rel_mase=r(best.loc[f"{m} | Total", "rel_MASE"], 3),
                       ape12=r(best.loc[f"{m} | Total", "APE_12m"], 1),
                       cagr=r(kf[f"{m} CAGR 2010-2025 (nominal)"], 1))
+    rk = pd.read_csv(TAB / "competitor_rank_2025.csv")
+    sc_chg = pd.read_csv(TAB / "competitor_share_changes.csv")
+    share_kpi = {}
+    for m in ("US", "EU"):
+        b = rk[(rk.market == m) & (rk.partner == "BD")].iloc[0]
+        c = sc_chg[(sc_chg.market == m) & (sc_chg.partner == "BD")].iloc[0]
+        share_kpi[m] = dict(share=r(b.share_pct, 1), rank=int(b["rank"]), n=int((rk.market == m).sum()),
+                            s2010=r(c["2010"], 1), s2022=r(c["2022"], 1))
+    pva = pd.read_csv(TAB / "price_volume_annual.csv")
+    t23 = pva[(pva.currency == "EUR") & (pva["product"] == "TOTAL") & (pva.period == "2023")].iloc[0]
+    pv2023 = dict(value=r(t23.value_chg_pct, 1), price_pp=r(t23.price_contrib_pp, 1), volume_pp=r(t23.volume_contrib_pp, 1))
     dump("overview", dict(
         months=list(tot.index), us=[r(v) for v in tot["US"]], eu=[r(v) for v in tot["EU"]], kpi=kpi,
         eu_share_2023=r(kf["EU27 share of world imports from BD, 2023"], 1),
+        share=share_kpi, pv2023=pv2023,
         generated=datetime.now(timezone.utc).strftime("%Y-%m-%d")))
 
     # ---------- Products & markets ----------
@@ -132,6 +144,7 @@ def main():
                beta=round(x.change_pct / (-0.10 * 0.8), 4)) for x in s1low.itertuples()]
     eu = sc[sc.scenario.str.startswith("S2 EU 12% MFN") & sc.scenario.str.endswith("[mid]")]
     eu = [dict(chapter=x.chapter, base=r(x.baseline_usd)) for x in eu.itertuples()]
+    sc = sc[~sc.scenario.str.startswith("S3")]  # S3 stress test stays in notebook 03 only
     summ = sc.groupby("scenario")[["baseline_usd", "change_usd"]].sum()
     bench = pd.read_csv(TAB / "s2_benchmark.csv")
     ass = pd.read_csv(TAB / "scenario_assumptions.csv")
@@ -140,7 +153,68 @@ def main():
         us_window=s1low.window.iloc[0], eu_window=sc[sc.market == "EU"].window.iloc[0],
         published={k: [r(v.baseline_usd), r(v.change_usd)] for k, v in summ.iterrows()},
         benchmark=[[x.estimate, x.coverage, r(x.loss_usd_bn, 3), r(x.loss_pct, 4)] for x in bench.itertuples()],
-        assumptions=[[x.scenario, x.assumption, x.value, x.source] for x in ass.itertuples()]))
+        assumptions=[[x.scenario, x.assumption, x.value, x.source] for x in ass.itertuples() if x.scenario != "S3"]))
+
+    # ---------- Competitors (Strategic) ----------
+    fc = pd.read_csv(PBI / "fact_competitors.csv")
+    dc = pd.read_csv(PBI / "dim_country.csv")
+    fc["year"] = fc.date.str[:4].astype(int)
+    nmon = fc.groupby(["market", "year"]).date.nunique()
+    comp = {}
+    for m in ("US", "EU"):
+        d = fc[fc.market == m]
+        yrs = sorted(y for y in d.year.unique() if nmon[(m, y)] == 12)
+        a = d[d.year.isin(yrs) & (d.partner != "WORLD")].groupby(["partner", "year"]).value_usd.sum().unstack()
+        tot_m = d[d.year.isin(yrs)].groupby(["year", "date"]).market_total_usd.first().groupby("year").sum()
+        sh = a.div(tot_m, axis=1) * 100
+        sh = sh.loc[sh[yrs[-1]].sort_values(ascending=False).index]
+        names = dict(zip(dc.partner, dc.country))
+        ss = pd.read_csv(TAB / "competitor_shift_share_2022_2025.csv")
+        ss = ss[ss.market == m].sort_values("change_usd_bn")
+        rr = rk[rk.market == m].sort_values("rank")
+        comp[m] = dict(
+            years=[int(y) for y in yrs], countries=[names[p] for p in sh.index],
+            share=[[r(v, 2) for v in row] for row in sh.values],
+            market_total=[r(tot_m[y]) for y in yrs],
+            rank=[[int(x.rank), x.country, r(x.value_usd_bn, 3), r(x.share_pct, 2)] for x in rr.itertuples()],
+            shift=[[x.country, r(x.change_usd_bn, 3), r(x.market_size_effect_usd_bn, 3), r(x.share_effect_usd_bn, 3)] for x in ss.itertuples()],
+            market_growth=r(ss.market_growth_pct.iloc[0], 1))
+    dump("competitors", dict(markets=comp))
+
+    # ---------- Price / volume, EU only (Operational) ----------
+    fpv = pd.read_csv(PBI / "fact_price_volume.csv")
+    fpv = fpv[fpv.hs_code.astype(str).isin(["61", "62"])].merge(dd[["date_key", "date"]], on="date_key")
+    fpv["ym"] = ym(fpv.date)
+    mth = fpv.groupby("ym")[["value_eur", "qty_kg"]].sum().sort_index()
+    mth["uv"] = mth.value_eur / mth.qty_kg
+    yo = mth.shift(12)
+    ann_pv = pva[(pva.currency == "EUR") & (pva["product"] == "TOTAL")]
+    dump("price_volume", dict(
+        months=list(mth.index), value_eur=[r(v) for v in mth.value_eur], qty_kg=[r(v) for v in mth.qty_kg],
+        unit_value=[r(v, 3) for v in mth.uv],
+        value_yoy=[r(v * 100, 1) for v in mth.value_eur / yo.value_eur - 1],
+        qty_yoy=[r(v * 100, 1) for v in mth.qty_kg / yo.qty_kg - 1],
+        uv_yoy=[r(v * 100, 1) for v in mth.uv / yo.uv - 1],
+        annual=[[x.period, r(x.value_chg_pct, 1), r(x.price_contrib_pp, 1), r(x.volume_contrib_pp, 1), r(x.unit_value, 2)]
+                for x in sorted(ann_pv.itertuples(), key=lambda x: (x.year, x.months < 12)) if not pd.isna(x.value_chg_pct)]))
+
+    # ---------- Monthly tracking (Operational) ----------
+    trk = {}
+    for s in series:
+        if not s["total"]:
+            continue
+        m = s["market"]
+        hist = tot[m].dropna()
+        last = []
+        for k in hist.index[-6:]:
+            prev = f"{int(k[:4]) - 1}{k[4:]}"
+            last.append([k, r(hist[k]), r(hist.get(prev)), r(hist[k] / hist[prev] - 1, 4) if prev in hist.index else None])
+        nxt = []
+        for i, k in enumerate(s["fc_x"][:6]):
+            prev = f"{int(k[:4]) - 1}{k[4:]}"
+            nxt.append([k, s["point"][i], s["lo80"][i], s["hi80"][i], r(hist.get(prev))])
+        trk[m] = dict(last=last, next=nxt, model=s["model"])
+    dump("tracking", trk)
 
 
 if __name__ == "__main__":
